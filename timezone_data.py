@@ -1,0 +1,236 @@
+"""Curated location data and DST-aware time-zone calculations."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Iterable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+
+OFFSET_ORDER: tuple[int, ...] = tuple(range(-12, 13))
+REQUIRED_TZDATA_VERSION = "2025.2"
+LOCATION_ORDER_WESTERN = "western"
+LOCATION_ORDER_EASTERN = "eastern"
+
+
+class TimeZoneDatabaseError(RuntimeError):
+    """Raised when no IANA time-zone database is available."""
+
+
+def time_zone_database_available() -> bool:
+    """Return whether this interpreter can resolve an IANA DST-aware zone."""
+    try:
+        ZoneInfo("Europe/London")
+    except ZoneInfoNotFoundError:
+        return False
+    return True
+
+
+def require_time_zone_database() -> None:
+    if not time_zone_database_available():
+        raise TimeZoneDatabaseError(
+            "No IANA time-zone database is available to this Python interpreter."
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Location:
+    country: str
+    city: str
+    zone_id: str
+    priority: int = 100
+
+    @property
+    def display_name(self) -> str:
+        return f"{self.country} — {self.city}"
+
+
+@dataclass(frozen=True, slots=True)
+class TimeZoneSnapshot:
+    offset: int
+    local_datetime: datetime
+    locations: tuple[Location, ...]
+    abbreviations: tuple[str, ...]
+
+
+# This is intentionally a recognizable selection rather than an exhaustive
+# geopolitical database. A larger candidate pool lets rows stay useful as
+# daylight-saving changes move cities between offsets.
+LOCATIONS: tuple[Location, ...] = (
+    Location("US Minor Outlying Islands", "Baker Island (uninhabited)", "Etc/GMT+12", 1),
+    Location("American Samoa", "Pago Pago", "Pacific/Pago_Pago", 1),
+    Location("Niue", "Alofi", "Pacific/Niue", 2),
+    Location("United States (Hawaii)", "Honolulu", "Pacific/Honolulu", 1),
+    Location("Cook Islands", "Avarua", "Pacific/Rarotonga", 2),
+    Location("French Polynesia", "Papeete", "Pacific/Tahiti", 3),
+    Location("Gambier Islands", "Rikitea", "Pacific/Gambier", 1),
+    Location("United States (Alaska)", "Juneau", "America/Juneau", 2),
+    Location("United States (Pacific)", "Los Angeles", "America/Los_Angeles", 1),
+    Location("Canada (Pacific)", "Vancouver", "America/Vancouver", 2),
+    Location("Pitcairn Islands", "Adamstown", "Pacific/Pitcairn", 3),
+    Location("United States (Mountain)", "Denver", "America/Denver", 1),
+    Location("United States (Arizona)", "Phoenix", "America/Phoenix", 2),
+    Location("Canada (Alberta)", "Edmonton", "America/Edmonton", 3),
+    Location("United States (Central)", "Chicago", "America/Chicago", 1),
+    Location("Mexico", "Mexico City", "America/Mexico_City", 2),
+    Location("Guatemala", "Guatemala City", "America/Guatemala", 3),
+    Location("United States (Eastern)", "Washington, D.C.", "America/New_York", 1),
+    Location("Peru", "Lima", "America/Lima", 2),
+    Location("Colombia", "Bogotá", "America/Bogota", 3),
+    Location("Canada (Atlantic)", "Halifax", "America/Halifax", 1),
+    Location("Dominican Republic", "Santo Domingo", "America/Santo_Domingo", 2),
+    Location("Venezuela", "Caracas", "America/Caracas", 3),
+    Location("Brazil", "Brasília", "America/Sao_Paulo", 1),
+    Location("Argentina", "Buenos Aires", "America/Argentina/Buenos_Aires", 2),
+    Location("Uruguay", "Montevideo", "America/Montevideo", 3),
+    Location("Brazil (Fernando de Noronha)", "Vila dos Remédios", "America/Noronha", 1),
+    Location("South Georgia", "King Edward Point", "Atlantic/South_Georgia", 2),
+    Location("Cabo Verde", "Praia", "Atlantic/Cape_Verde", 1),
+    Location("Portugal (Azores)", "Ponta Delgada", "Atlantic/Azores", 2),
+    Location("United Kingdom", "London", "Europe/London", 1),
+    Location("Ireland", "Dublin", "Europe/Dublin", 2),
+    Location("Ghana", "Accra", "Africa/Accra", 3),
+    Location("Nigeria", "Abuja", "Africa/Lagos", 1),
+    Location("Tunisia", "Tunis", "Africa/Tunis", 2),
+    Location("France", "Paris", "Europe/Paris", 3),
+    Location("Germany", "Berlin", "Europe/Berlin", 4),
+    Location("South Africa", "Pretoria", "Africa/Johannesburg", 1),
+    Location("Mozambique", "Maputo", "Africa/Maputo", 2),
+    Location("Greece", "Athens", "Europe/Athens", 3),
+    Location("Egypt", "Cairo", "Africa/Cairo", 4),
+    Location("Russia", "Moscow", "Europe/Moscow", 1),
+    Location("Kenya", "Nairobi", "Africa/Nairobi", 2),
+    Location("Saudi Arabia", "Riyadh", "Asia/Riyadh", 3),
+    Location("United Arab Emirates", "Abu Dhabi", "Asia/Dubai", 1),
+    Location("Oman", "Muscat", "Asia/Muscat", 2),
+    Location("Mauritius", "Port Louis", "Indian/Mauritius", 3),
+    Location("Pakistan", "Islamabad", "Asia/Karachi", 1),
+    Location("Uzbekistan", "Tashkent", "Asia/Tashkent", 2),
+    Location("Maldives", "Malé", "Indian/Maldives", 3),
+    Location("Bangladesh", "Dhaka", "Asia/Dhaka", 1),
+    Location("Bhutan", "Thimphu", "Asia/Thimphu", 2),
+    Location("Kyrgyzstan", "Bishkek", "Asia/Bishkek", 3),
+    Location("Thailand", "Bangkok", "Asia/Bangkok", 1),
+    Location("Indonesia", "Jakarta", "Asia/Jakarta", 2),
+    Location("Cambodia", "Phnom Penh", "Asia/Phnom_Penh", 3),
+    Location("Singapore", "Singapore", "Asia/Singapore", 1),
+    Location("China", "Beijing", "Asia/Shanghai", 2),
+    Location("Philippines", "Manila", "Asia/Manila", 3),
+    Location("Japan", "Tokyo", "Asia/Tokyo", 1),
+    Location("South Korea", "Seoul", "Asia/Seoul", 2),
+    Location("Timor-Leste", "Dili", "Asia/Dili", 3),
+    Location("Australia (Queensland)", "Brisbane", "Australia/Brisbane", 1),
+    Location("Papua New Guinea", "Port Moresby", "Pacific/Port_Moresby", 2),
+    Location("Guam", "Hagåtña", "Pacific/Guam", 3),
+    Location("New Caledonia", "Nouméa", "Pacific/Noumea", 1),
+    Location("Solomon Islands", "Honiara", "Pacific/Guadalcanal", 2),
+    Location("Micronesia (Pohnpei)", "Palikir", "Pacific/Pohnpei", 3),
+    Location("Fiji", "Suva", "Pacific/Fiji", 1),
+    Location("Kiribati (Gilbert Islands)", "South Tarawa", "Pacific/Tarawa", 2),
+    Location("New Zealand", "Wellington", "Pacific/Auckland", 3),
+)
+
+
+def regional_display_rank(location: Location, location_order: str) -> int:
+    """Return a location's priority group for the selected geographic ordering."""
+    western = location.zone_id.startswith(("America/", "Australia/")) or location.zone_id in {
+        "Pacific/Auckland",
+        "Pacific/Guam",
+        "Pacific/Honolulu",
+        "Pacific/Pago_Pago",
+        "Pacific/Pitcairn",
+    }
+    european = location.zone_id.startswith("Europe/") or location.zone_id == "Atlantic/Azores"
+    eastern = location.zone_id.startswith(("Asia/", "Indian/", "Pacific/"))
+
+    if location_order == LOCATION_ORDER_WESTERN:
+        if european or western:
+            return 0
+        if eastern:
+            return 1
+        return 2
+    if location_order == LOCATION_ORDER_EASTERN:
+        if eastern:
+            return 0
+        if european or western:
+            return 1
+        return 2
+    raise ValueError(f"Unknown location order: {location_order}")
+
+
+def format_gmt_offset(offset: int) -> str:
+    if offset == 0:
+        return "GMT"
+    return f"GMT{offset:+d}"
+
+
+def offset_for(location: Location, at_utc: datetime) -> tuple[int, str] | None:
+    """Return a whole-hour live offset and abbreviation, or None if excluded."""
+    if at_utc.tzinfo is None:
+        at_utc = at_utc.replace(tzinfo=timezone.utc)
+    else:
+        at_utc = at_utc.astimezone(timezone.utc)
+
+    try:
+        local = at_utc.astimezone(ZoneInfo(location.zone_id))
+    except ZoneInfoNotFoundError:
+        return None
+
+    delta = local.utcoffset()
+    if delta is None:
+        return None
+    seconds = delta.total_seconds()
+    if seconds % 3600:
+        return None
+    offset = int(seconds // 3600)
+    if offset < -12 or offset > 12:
+        return None
+    return offset, local.tzname() or format_gmt_offset(offset)
+
+
+def snapshots(
+    at_utc: datetime | None = None,
+    locations: Iterable[Location] = LOCATIONS,
+    max_locations: int = 3,
+    location_order: str = LOCATION_ORDER_WESTERN,
+) -> tuple[TimeZoneSnapshot, ...]:
+    """Create the fixed ordered rows, dynamically regrouping locations by DST."""
+    now = at_utc or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    else:
+        now = now.astimezone(timezone.utc)
+
+    grouped: dict[int, list[tuple[Location, str]]] = {
+        offset: [] for offset in OFFSET_ORDER
+    }
+    for location in locations:
+        result = offset_for(location, now)
+        if result is not None:
+            offset, abbreviation = result
+            grouped[offset].append((location, abbreviation))
+
+    result_rows: list[TimeZoneSnapshot] = []
+    for offset in OFFSET_ORDER:
+        selected = sorted(
+            grouped[offset],
+            key=lambda item: (
+                regional_display_rank(item[0], location_order),
+                item[0].priority,
+                item[0].country,
+                item[0].city,
+            ),
+        )[:max_locations]
+        abbreviations = tuple(dict.fromkeys(item[1] for item in selected))
+        result_rows.append(
+            TimeZoneSnapshot(
+                offset=offset,
+                local_datetime=now.astimezone(
+                    timezone(timedelta(hours=offset), format_gmt_offset(offset))
+                ),
+                locations=tuple(item[0] for item in selected),
+                abbreviations=abbreviations,
+            )
+        )
+    return tuple(result_rows)

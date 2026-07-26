@@ -1,0 +1,12 @@
+"filename", "language", "Python", "pip requirements", "Markdown", "comment", "blank", "total"
+"c:\Users\davey\Desktop\Projects\Time Zones\README.md", "Markdown", 0, 0, 34, 0, 14, 48
+"c:\Users\davey\Desktop\Projects\Time Zones\app_window.py", "Python", 483, 0, 0, 2, 53, 538
+"c:\Users\davey\Desktop\Projects\Time Zones\main.py", "Python", 51, 0, 0, 1, 16, 68
+"c:\Users\davey\Desktop\Projects\Time Zones\requirements.txt", "pip requirements", 0, 2, 0, 0, 1, 3
+"c:\Users\davey\Desktop\Projects\Time Zones\single_instance.py", "Python", 89, 0, 0, 2, 17, 108
+"c:\Users\davey\Desktop\Projects\Time Zones\tests\test_single_instance.py", "Python", 42, 0, 0, 0, 9, 51
+"c:\Users\davey\Desktop\Projects\Time Zones\tests\test_startup.py", "Python", 21, 0, 0, 0, 7, 28
+"c:\Users\davey\Desktop\Projects\Time Zones\tests\test_timezone_data.py", "Python", 59, 0, 0, 0, 12, 71
+"c:\Users\davey\Desktop\Projects\Time Zones\tests\test_ui_smoke.py", "Python", 64, 0, 0, 0, 10, 74
+"c:\Users\davey\Desktop\Projects\Time Zones\timezone_data.py", "Python", 166, 0, 0, 8, 28, 202
+"Total", "-", 975, 2, 34, 13, 167, 1191
