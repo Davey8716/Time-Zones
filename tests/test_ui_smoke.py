@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -12,10 +13,17 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QPushButton,
+    QStyle,
     QSystemTrayIcon,
 )
 
-from app_window import APP_STYLE, TimeZoneRow, TimeZoneWindow
+from app_window import (
+    APP_STYLE,
+    EXE_BUILDER_TRAY_ICON_ENV_VAR,
+    resolve_build_icon,
+    TimeZoneRow,
+    TimeZoneWindow,
+)
 from timezone_data import Location, OFFSET_ORDER, TimeZoneSnapshot, format_gmt_offset
 from timezone_config import (
     LOCATION_ORDER_EASTERN,
@@ -224,6 +232,59 @@ class UiSmokeTests(unittest.TestCase):
         self.assertIn("QToolTip", APP_STYLE)
         self.assertIn("background-color: #1a202a", APP_STYLE)
         self.assertIn("color: #dce5ef", APP_STYLE)
+
+    def test_no_builder_icon_uses_the_standard_window_and_tray_icon(self):
+        with patch.dict(os.environ, {EXE_BUILDER_TRAY_ICON_ENV_VAR: ""}):
+            fallback_icon = resolve_build_icon()
+            window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+            try:
+                self.assertFalse(fallback_icon.isNull())
+                self.assertEqual(
+                    window.windowIcon().pixmap(16, 16).toImage(),
+                    fallback_icon.pixmap(16, 16).toImage(),
+                )
+                window._create_tray()
+                self.assertFalse(window._tray.icon().isNull())
+                self.assertEqual(
+                    window._tray.icon().pixmap(16, 16).toImage(),
+                    fallback_icon.pixmap(16, 16).toImage(),
+                )
+            finally:
+                window._timer.stop()
+                if window._tray is not None:
+                    window._tray.hide()
+                window._allow_close = True
+                window.close()
+
+    def test_builder_icon_is_used_for_window_and_tray(self):
+        icon_path = Path(__file__).parent.parent / "Icons" / "world_clock_icon.ico"
+        self.assertTrue(icon_path.is_file())
+        with patch.dict(
+            os.environ,
+            {EXE_BUILDER_TRAY_ICON_ENV_VAR: str(icon_path)},
+        ):
+            fallback_icon = QApplication.style().standardIcon(
+                QStyle.StandardPixmap.SP_ComputerIcon
+            )
+            window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+            try:
+                self.assertFalse(window.windowIcon().isNull())
+                self.assertNotEqual(
+                    window.windowIcon().pixmap(16, 16).toImage(),
+                    fallback_icon.pixmap(16, 16).toImage(),
+                )
+                window._create_tray()
+                self.assertFalse(window._tray.icon().isNull())
+                self.assertEqual(
+                    window._tray.icon().pixmap(16, 16).toImage(),
+                    window.windowIcon().pixmap(16, 16).toImage(),
+                )
+            finally:
+                window._timer.stop()
+                if window._tray is not None:
+                    window._tray.hide()
+                window._allow_close = True
+                window.close()
 
     def test_tray_double_click_toggles_visibility_and_uses_dark_menu(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 import re
 
@@ -28,6 +29,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QPushButton,
+    QStyle,
     QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
@@ -236,20 +238,15 @@ QMenu::separator {
 """
 
 
-def create_app_icon(size: int = 64) -> QIcon:
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setBrush(QColor("#2f8076"))
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.drawEllipse(2, 2, size - 4, size - 4)
-    painter.setPen(QPen(QColor("#eef7f5"), max(2, size // 16)))
-    centre = QPoint(size // 2, size // 2)
-    painter.drawLine(centre, QPoint(size // 2, size // 5))
-    painter.drawLine(centre, QPoint(size * 3 // 4, size // 2))
-    painter.end()
-    return QIcon(pixmap)
+EXE_BUILDER_TRAY_ICON_ENV_VAR = "EXE_BUILDER_TRAY_ICON_PATH"
+
+
+def resolve_build_icon() -> QIcon:
+    """Return EXE Builder's bundled icon or Qt's standard Windows fallback."""
+    icon_path = os.environ.get(EXE_BUILDER_TRAY_ICON_ENV_VAR, "").strip()
+    if icon_path:
+        return QIcon(icon_path)
+    return QApplication.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon)
 
 
 def create_column_icon(kind: str, size: int = 18) -> QPixmap:
@@ -546,7 +543,7 @@ class TimeZoneWindow(QMainWindow):
         self.location_order = self._config.load_location_order()
 
         self.setWindowTitle("World Time Zones")
-        self.setWindowIcon(create_app_icon())
+        self.setWindowIcon(resolve_build_icon())
         self.setWindowFlags(
             Qt.WindowType.Window
             | Qt.WindowType.FramelessWindowHint
