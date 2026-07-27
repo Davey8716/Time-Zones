@@ -228,6 +228,11 @@ QMenu::item {
 QMenu::item:selected {
     background: #2d786f;
 }
+QMenu::separator {
+    height: 1px;
+    background: #354052;
+    margin: 5px 8px;
+}
 """
 
 
@@ -692,7 +697,8 @@ class TimeZoneWindow(QMainWindow):
     def _create_tray(self) -> None:
         self._tray = QSystemTrayIcon(self.windowIcon(), self)
         self._tray.setToolTip("World Time Zones")
-        menu = QMenu()
+        menu = QMenu(self)
+        menu.setStyleSheet(APP_STYLE)
         self._show_action = QAction("Hide", self)
         self._show_action.triggered.connect(self.toggle_visibility)
         exit_action = QAction("Exit", self)
@@ -740,7 +746,7 @@ class TimeZoneWindow(QMainWindow):
 
     def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
-            self.show_and_activate()
+            self.toggle_visibility()
 
     def quit_application(self) -> None:
         self._allow_close = True

@@ -7,7 +7,13 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication, QLabel, QListWidget, QPushButton
+from PySide6.QtWidgets import (
+    QApplication,
+    QLabel,
+    QListWidget,
+    QPushButton,
+    QSystemTrayIcon,
+)
 
 from app_window import APP_STYLE, TimeZoneRow, TimeZoneWindow
 from timezone_data import Location, OFFSET_ORDER, TimeZoneSnapshot, format_gmt_offset
@@ -218,6 +224,37 @@ class UiSmokeTests(unittest.TestCase):
         self.assertIn("QToolTip", APP_STYLE)
         self.assertIn("background-color: #1a202a", APP_STYLE)
         self.assertIn("color: #dce5ef", APP_STYLE)
+
+    def test_tray_double_click_toggles_visibility_and_uses_dark_menu(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            window._create_tray()
+            window.show()
+            self.app.processEvents()
+
+            window._tray_activated(QSystemTrayIcon.ActivationReason.DoubleClick)
+            self.assertFalse(window.isVisible())
+            self.assertEqual(window._show_action.text(), "Show")
+
+            window._tray_activated(QSystemTrayIcon.ActivationReason.DoubleClick)
+            self.assertTrue(window.isVisible())
+            self.assertEqual(window._show_action.text(), "Hide")
+
+            menu = window._tray.contextMenu()
+            self.assertIsNotNone(menu)
+            self.assertIn("QMenu", menu.styleSheet())
+            self.assertIn("background: #1a202a", menu.styleSheet())
+            self.assertIn("QMenu::separator", menu.styleSheet())
+            self.assertEqual(
+                [action.text() for action in menu.actions() if action.text()],
+                ["Hide", "Exit"],
+            )
+        finally:
+            window._timer.stop()
+            if window._tray is not None:
+                window._tray.hide()
+            window._allow_close = True
+            window.close()
 
 
 if __name__ == "__main__":
