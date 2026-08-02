@@ -37,29 +37,24 @@ one left-click on the tray icon to restore and focus it. Use the tray menu's
 - Rows are ordered UTC−12 through UTC+14, including supported half-hour and
   quarter-hour offsets. The initial view is centred on UTC.
 - Times use a 24-hour clock and include the local date and seconds.
-- Locations are regrouped using current IANA daylight-saving rules.
-- Fractional rows include real capitals such as Kathmandu and New Delhi. For
-  multi-zone territories, the app uses an appropriate regional centre such as
-  Taiohae, Eucla, Waitangi, or Kiritimati.
+- Each occupied UTC row shows one hard-coded representative country, its
+  capital or regional centre, its next clock change, and its region.
+- Representatives move automatically between UTC rows when their IANA
+  summer/winter rules change.
 
 ## Reference time zone
 
-Choose a country or one of its regional time zones, such as
-**United States (Mountain)**, from **World countries list** to set its live
-offset as the reference. Regional names in the dropdown match the names shown
-in the time-zone rows where available. Dropdown-only regions, including
-Russia's 11 time zones, navigate to their existing UTC rows without adding new
-location cards. Multi-zone countries also separate regions that share an
-offset during part of the year but follow different daylight-saving rules.
-The reference row is blue, earlier offsets are red, and
-later offsets are green. The choice is saved for the current Windows user in
-local app data as `timezone_config.json`, including both the exact dropdown
-location and its reference offset. You can also right-click a visible UTC row and choose
-**Set UTC±N as my reference**. Use the reset icon beside the UTC
-header icon to return to UTC.
-
-Use the **<** and **>** buttons beside the globe header icon to show Western or
-Eastern locations first. This ordering preference is also saved per user.
+Choose a country or one of its regional time zones from **World countries
+list** to set its live offset as the reference. Entries include the country,
+capital or regional centre, and region, for example **France — Paris —
+Europe**. Selecting an entry scrolls to and highlights its current UTC row but
+does not alter the row's hard-coded representative. The selected country
+controls the reference row: it is blue, earlier offsets are red, and later
+offsets are green. The reference is stored for the current Windows user in
+local app data as `timezone_config.json`. You can also right-click a visible UTC row and choose
+**Set UTC±N as my reference**. A manual row selection chooses a representative
+country so seasonal changes remain automatic. Use the reset icon beside the
+UTC header icon to clear the selected reference country and return to fixed UTC.
 
 ## Tests
 

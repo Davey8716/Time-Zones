@@ -54,8 +54,6 @@ OFFSET_ORDER: tuple[Offset, ...] = (
     14,
 )
 REQUIRED_TZDATA_VERSION = "2025.2"
-LOCATION_ORDER_WESTERN = "western"
-LOCATION_ORDER_EASTERN = "eastern"
 
 
 class TimeZoneDatabaseError(RuntimeError):
@@ -96,6 +94,12 @@ class TimeZoneSnapshot:
     local_datetime: datetime
     locations: tuple[Location, ...]
     abbreviations: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class OffsetTransition:
+    at_utc: datetime
+    offset: Offset
 
 
 # This is intentionally a recognizable selection rather than an exhaustive
@@ -151,7 +155,7 @@ LOCATIONS: tuple[Location, ...] = (
     Location("Portugal (Azores)", "Ponta Delgada", "Atlantic/Azores", 2),
     Location("United Kingdom", "London", "Europe/London", 1),
     Location("Ireland", "Dublin", "Europe/Dublin", 2),
-    Location("Ghana", "Accra", "Africa/Accra", 3),
+    Location("Ghana", "Accra", "Africa/Accra", 1),
     Location("Nigeria", "Abuja", "Africa/Lagos", 1),
     Location("Tunisia", "Tunis", "Africa/Tunis", 2),
     Location("France", "Paris", "Europe/Paris", 3),
@@ -437,31 +441,65 @@ def time_zone_for_country(country: str) -> str | None:
     return _COUNTRY_ZONE_BY_NAME.get(country.strip().casefold())
 
 
-def regional_display_rank(location: Location, location_order: str) -> int:
-    """Return a location's priority group for the selected geographic ordering."""
-    western = location.zone_id.startswith(("America/", "Australia/")) or location.zone_id in {
-        "Pacific/Auckland",
-        "Pacific/Guam",
-        "Pacific/Honolulu",
-        "Pacific/Pago_Pago",
-        "Pacific/Pitcairn",
-    }
-    european = location.zone_id.startswith("Europe/") or location.zone_id == "Atlantic/Azores"
-    eastern = location.zone_id.startswith(("Asia/", "Indian/", "Pacific/"))
+def display_location_for_country(country: str) -> Location | None:
+    """Return the best readable location for a dropdown country or region."""
+    zone_id = time_zone_for_country(country)
+    if zone_id is None:
+        return None
+    zone_matches = [location for location in LOCATIONS if location.zone_id == zone_id]
+    exact_matches = [
+        location
+        for location in zone_matches
+        if location.country.casefold() == country.casefold()
+    ]
+    if exact_matches:
+        city = min(exact_matches, key=lambda location: location.priority).city
+    elif zone_matches:
+        city = min(zone_matches, key=lambda location: location.priority).city
+    else:
+        city = zone_id.rsplit("/", 1)[-1].replace("_", " ")
+    return Location(country, city, zone_id)
 
-    if location_order == LOCATION_ORDER_WESTERN:
-        if european or western:
-            return 0
-        if eastern:
-            return 1
-        return 2
-    if location_order == LOCATION_ORDER_EASTERN:
-        if eastern:
-            return 0
-        if european or western:
-            return 1
-        return 2
-    raise ValueError(f"Unknown location order: {location_order}")
+
+_REGION_BY_ZONE_AREA = {
+    "Africa": "Africa",
+    "America": "Americas",
+    "Antarctica": "Antarctica",
+    "Asia": "Asia",
+    "Atlantic": "Atlantic",
+    "Australia": "Oceania",
+    "Europe": "Europe",
+    "Indian": "Indian Ocean",
+    "Pacific": "Oceania",
+    "Etc": "Oceania",
+}
+
+
+def region_for_zone(zone_id: str) -> str:
+    return _REGION_BY_ZONE_AREA.get(zone_id.partition("/")[0], "Global")
+
+
+def dropdown_label_for_country(country: str) -> str:
+    location = display_location_for_country(country)
+    if location is None:
+        return country
+    return f"{country} — {location.city} — {region_for_zone(location.zone_id)}"
+
+
+COUNTRY_DROPDOWN_LABELS: list[str] = [
+    dropdown_label_for_country(country) for country in COUNTRIES
+]
+_COUNTRY_BY_DROPDOWN_LABEL = {
+    label.casefold(): country
+    for country, label in zip(COUNTRIES, COUNTRY_DROPDOWN_LABELS)
+}
+
+
+def country_for_dropdown_text(text: str) -> str | None:
+    query = text.strip().casefold()
+    if query in _COUNTRY_BY_DROPDOWN_LABEL:
+        return _COUNTRY_BY_DROPDOWN_LABEL[query]
+    return next((country for country in COUNTRIES if country.casefold() == query), None)
 
 
 def format_gmt_offset(offset: Offset) -> str:
@@ -501,47 +539,94 @@ def offset_for(location: Location, at_utc: datetime) -> tuple[Offset, str] | Non
     return offset, local.tzname() or format_gmt_offset(offset)
 
 
+def next_offset_transition(
+    zone_id: str,
+    after_utc: datetime,
+    horizon: timedelta = timedelta(days=550),
+) -> OffsetTransition | None:
+    """Find the next UTC-offset change within the search horizon."""
+    if after_utc.tzinfo is None:
+        current = after_utc.replace(tzinfo=timezone.utc)
+    else:
+        current = after_utc.astimezone(timezone.utc)
+    try:
+        zone = ZoneInfo(zone_id)
+    except ZoneInfoNotFoundError:
+        return None
+
+    def offset_at(at_utc: datetime) -> timedelta | None:
+        return at_utc.astimezone(zone).utcoffset()
+
+    current_offset = offset_at(current)
+    if current_offset is None:
+        return None
+    search_end = current + horizon
+    step = timedelta(hours=6)
+    lower = current
+    while lower < search_end:
+        upper = min(lower + step, search_end)
+        upper_offset = offset_at(upper)
+        if upper_offset != current_offset:
+            while upper - lower > timedelta(seconds=1):
+                midpoint = lower + (upper - lower) / 2
+                if offset_at(midpoint) == current_offset:
+                    lower = midpoint
+                else:
+                    upper = midpoint
+            transition_at = upper.replace(microsecond=0)
+            resulting_offset = offset_at(transition_at)
+            if resulting_offset == current_offset:
+                transition_at += timedelta(seconds=1)
+                resulting_offset = offset_at(transition_at)
+            if resulting_offset is None:
+                return None
+            total_minutes = int(resulting_offset.total_seconds() // 60)
+            offset: Offset = total_minutes / 60
+            if offset.is_integer():
+                offset = int(offset)
+            return OffsetTransition(transition_at, offset)
+        lower = upper
+    return None
+
+
 def snapshots(
     at_utc: datetime | None = None,
     locations: Iterable[Location] = LOCATIONS,
-    max_locations: int = 3,
-    location_order: str = LOCATION_ORDER_WESTERN,
+    max_locations: int = 1,
 ) -> tuple[TimeZoneSnapshot, ...]:
-    """Create the fixed ordered rows, dynamically regrouping locations by DST."""
+    """Create fixed rows with one hard-coded representative regrouped by DST."""
     now = at_utc or datetime.now(timezone.utc)
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
     else:
         now = now.astimezone(timezone.utc)
 
-    grouped: dict[Offset, list[tuple[Location, str]]] = {
+    grouped: dict[Offset, list[tuple[int, Location, str]]] = {
         offset: [] for offset in OFFSET_ORDER
     }
-    for location in locations:
+    for index, location in enumerate(locations):
         result = offset_for(location, now)
         if result is not None:
             offset, abbreviation = result
-            grouped[offset].append((location, abbreviation))
+            grouped[offset].append((index, location, abbreviation))
 
     result_rows: list[TimeZoneSnapshot] = []
     for offset in OFFSET_ORDER:
         selected = sorted(
             grouped[offset],
             key=lambda item: (
-                regional_display_rank(item[0], location_order),
-                item[0].priority,
-                item[0].country,
-                item[0].city,
+                item[1].priority,
+                item[0],
             ),
         )[:max_locations]
-        abbreviations = tuple(dict.fromkeys(item[1] for item in selected))
+        abbreviations = tuple(dict.fromkeys(item[2] for item in selected))
         result_rows.append(
             TimeZoneSnapshot(
                 offset=offset,
                 local_datetime=now.astimezone(
                     timezone(timedelta(hours=offset), format_gmt_offset(offset))
                 ),
-                locations=tuple(item[0] for item in selected),
+                locations=tuple(item[1] for item in selected),
                 abbreviations=abbreviations,
             )
         )

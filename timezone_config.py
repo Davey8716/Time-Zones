@@ -12,9 +12,6 @@ from timezone_data import OFFSET_ORDER, Offset
 MIN_OFFSET = -12
 MAX_OFFSET = 14
 DEFAULT_REFERENCE_OFFSET = 0
-LOCATION_ORDER_WESTERN = "western"
-LOCATION_ORDER_EASTERN = "eastern"
-DEFAULT_LOCATION_ORDER = LOCATION_ORDER_WESTERN
 
 
 def default_config_path() -> Path:
@@ -26,10 +23,6 @@ def default_config_path() -> Path:
 
 def is_valid_reference_offset(value: object) -> bool:
     return type(value) in {int, float} and value in OFFSET_ORDER
-
-
-def is_valid_location_order(value: object) -> bool:
-    return value in {LOCATION_ORDER_WESTERN, LOCATION_ORDER_EASTERN}
 
 
 def is_valid_reference_country(value: object) -> bool:
@@ -51,23 +44,18 @@ class TimeZoneConfig:
         data = self._load_data()
         reference_offset = data.get("reference_offset")
         reference_country = data.get("reference_country")
-        location_order = data.get("location_order")
+        normalised_reference_country = (
+            reference_country.strip()
+            if is_valid_reference_country(reference_country)
+            else None
+        )
         return {
             "reference_offset": (
                 reference_offset
                 if is_valid_reference_offset(reference_offset)
                 else DEFAULT_REFERENCE_OFFSET
             ),
-            "reference_country": (
-                reference_country.strip()
-                if is_valid_reference_country(reference_country)
-                else None
-            ),
-            "location_order": (
-                location_order
-                if is_valid_location_order(location_order)
-                else DEFAULT_LOCATION_ORDER
-            ),
+            "reference_country": normalised_reference_country,
         }
 
     def load_reference_offset(self) -> Offset:
@@ -76,9 +64,6 @@ class TimeZoneConfig:
     def load_reference_country(self) -> str | None:
         country = self._normalised_data()["reference_country"]
         return country if isinstance(country, str) else None
-
-    def load_location_order(self) -> str:
-        return self._normalised_data()["location_order"]  # type: ignore[return-value]
 
     def _save_data(self, data: dict[str, object]) -> bool:
         try:
@@ -108,12 +93,6 @@ class TimeZoneConfig:
             raise ValueError("Reference country must not be blank")
         data = self._normalised_data()
         data["reference_offset"] = offset
-        data["reference_country"] = country.strip()
-        return self._save_data(data)
-
-    def save_location_order(self, location_order: str) -> bool:
-        if not is_valid_location_order(location_order):
-            raise ValueError(f"Invalid location order: {location_order}")
-        data = self._normalised_data()
-        data["location_order"] = location_order
+        country_name = country.strip()
+        data["reference_country"] = country_name
         return self._save_data(data)

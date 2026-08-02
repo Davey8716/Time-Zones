@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox
-
 from app_window import TimeZoneWindow
 from single_instance import SingleInstance
 from timezone_data import (

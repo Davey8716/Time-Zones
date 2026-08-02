@@ -39,26 +39,6 @@ QLabel#columnHeader {
     color: #758397;
     font-size: 8.5pt;
 }
-QPushButton#westernOrderButton, QPushButton#easternOrderButton {
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background: transparent;
-    color: #758397;
-    padding: 0;
-    margin: 0;
-    text-align: center;
-    font-size: 12pt;
-    font-weight: 700;
-}
-QPushButton#westernOrderButton:hover, QPushButton#easternOrderButton:hover {
-    background: #29313d;
-    color: #dce5ef;
-}
-QPushButton#westernOrderButton:checked, QPushButton#easternOrderButton:checked {
-    background: #1b2b3a;
-    border-color: #35506b;
-    color: #ffffff;
-}
 QPushButton#windowButton {
     border: none;
     background: transparent;
@@ -199,6 +179,16 @@ QLabel#locationCityLabel {
     background: transparent;
     color: #aeb9c7;
     font-size: 9pt;
+}
+QLabel#locationTransitionLabel {
+    background: transparent;
+    color: #7f91a6;
+    font-size: 8pt;
+}
+QLabel#locationRegionLabel {
+    background: transparent;
+    color: #66768a;
+    font-size: 8pt;
 }
 QToolTip {
     color: #dce5ef;

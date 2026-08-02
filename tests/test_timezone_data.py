@@ -5,13 +5,19 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from timezone_data import (
     COUNTRIES,
+    COUNTRY_DROPDOWN_LABELS,
     COUNTRY_TIME_ZONES,
     COUNTRY_ZONE_OPTIONS,
     LOCATIONS,
     OFFSET_ORDER,
     Location,
+    country_for_dropdown_text,
+    display_location_for_country,
+    dropdown_label_for_country,
     format_gmt_offset,
+    next_offset_transition,
     offset_for,
+    region_for_zone,
     time_zone_database_available,
     snapshots,
     time_zone_for_country,
@@ -42,6 +48,47 @@ class TimeZoneDataTests(unittest.TestCase):
         summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
         self.assertEqual(offset_for(london, winter), (0, "GMT"))
         self.assertEqual(offset_for(london, summer), (1, "BST"))
+
+    def test_next_offset_transition_finds_hour_and_half_hour_changes(self):
+        at_utc = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
+        london = next_offset_transition("Europe/London", at_utc)
+        lord_howe = next_offset_transition("Australia/Lord_Howe", at_utc)
+
+        self.assertIsNotNone(london)
+        self.assertEqual(
+            london.at_utc,
+            datetime(2026, 3, 29, 1, tzinfo=timezone.utc),
+        )
+        self.assertEqual(london.offset, 1)
+        self.assertIsNotNone(lord_howe)
+        self.assertEqual(
+            lord_howe.at_utc,
+            datetime(2026, 4, 4, 15, tzinfo=timezone.utc),
+        )
+        self.assertEqual(lord_howe.offset, 10.5)
+
+    def test_next_offset_transition_returns_none_for_fixed_zone(self):
+        at_utc = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
+        self.assertIsNone(next_offset_transition("Asia/Kolkata", at_utc))
+
+    def test_display_location_prefers_exact_region_then_zone_city(self):
+        self.assertEqual(
+            display_location_for_country("United States (Eastern)"),
+            Location(
+                "United States (Eastern)",
+                "Washington, D.C.",
+                "America/New_York",
+            ),
+        )
+        self.assertEqual(
+            display_location_for_country("Australia (Western Australia)"),
+            Location(
+                "Australia (Western Australia)",
+                "Perth",
+                "Australia/Perth",
+            ),
+        )
+        self.assertIsNone(display_location_for_country("Not a country"))
 
     def test_fractional_and_dateline_offsets_are_supported(self):
         at_utc = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
@@ -87,10 +134,7 @@ class TimeZoneDataTests(unittest.TestCase):
                 if location.zone_id == "Pacific/Chatham"
             ]
             self.assertEqual(chatham_offsets, [expected_offset])
-        self.assertEqual(
-            {location.country for location in summer_rows[13].locations},
-            {"Samoa", "Tonga"},
-        )
+        self.assertEqual(summer_rows[13].locations[0].country, "Samoa")
         self.assertEqual(summer_rows[14].locations[0].city, "Kiritimati")
 
     def test_every_current_world_offset_has_a_curated_location(self):
@@ -318,26 +362,22 @@ class TimeZoneDataTests(unittest.TestCase):
             "Offsets with no matching curated location must remain visible",
         )
 
-    def test_european_and_western_locations_are_prioritized(self):
+    def test_rows_use_one_deterministic_hard_coded_representative(self):
         at_utc = datetime(2026, 7, 26, 12, tzinfo=timezone.utc)
         rows = {row.offset: row for row in snapshots(at_utc)}
-        self.assertEqual(
-            [location.country for location in rows[0].locations],
-            ["Portugal (Azores)", "Ghana"],
-        )
-        self.assertEqual(
-            [location.country for location in rows[1].locations],
-            ["United Kingdom", "Ireland", "Nigeria"],
-        )
-        self.assertEqual(
-            [location.country for location in rows[2].locations],
-            ["France", "Germany", "South Africa"],
-        )
+        self.assertEqual(rows[0].locations[0].country, "Ghana")
+        self.assertEqual(rows[1].locations[0].country, "United Kingdom")
+        self.assertEqual(rows[2].locations[0].country, "South Africa")
+        self.assertTrue(all(len(row.locations) <= 1 for row in rows.values()))
 
-    def test_eastern_order_prioritizes_pacific_locations(self):
-        at_utc = datetime(2026, 7, 26, 12, tzinfo=timezone.utc)
-        rows = {row.offset: row for row in snapshots(at_utc, location_order="eastern")}
-        self.assertEqual(rows[-8].locations[0].country, "Pitcairn Islands")
+    def test_dropdown_labels_include_country_city_and_region(self):
+        label = "France — Paris — Europe"
+        self.assertEqual(dropdown_label_for_country("France"), label)
+        self.assertIn(label, COUNTRY_DROPDOWN_LABELS)
+        self.assertEqual(country_for_dropdown_text(label), "France")
+        self.assertEqual(country_for_dropdown_text("France"), "France")
+        self.assertEqual(region_for_zone("Asia/Tokyo"), "Asia")
+        self.assertEqual(region_for_zone("America/New_York"), "Americas")
 
     def test_date_rollover_is_visible(self):
         at_utc = datetime(2026, 1, 1, 18, 30, tzinfo=timezone.utc)

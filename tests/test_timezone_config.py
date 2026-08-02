@@ -4,10 +4,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from timezone_config import (
-    DEFAULT_LOCATION_ORDER,
     DEFAULT_REFERENCE_OFFSET,
-    LOCATION_ORDER_EASTERN,
-    LOCATION_ORDER_WESTERN,
     TimeZoneConfig,
 )
 
@@ -32,8 +29,6 @@ class TimeZoneConfigTests(unittest.TestCase):
         self.assertEqual(self.config.load_reference_offset(), DEFAULT_REFERENCE_OFFSET)
         self.path.write_text('{"reference_country": 42}', encoding="utf-8")
         self.assertIsNone(self.config.load_reference_country())
-        self.path.write_text('{"location_order": "invalid"}', encoding="utf-8")
-        self.assertEqual(self.config.load_location_order(), DEFAULT_LOCATION_ORDER)
 
     def test_valid_reference_offset_is_saved_and_restored(self):
         self.assertTrue(self.config.save_reference_offset(-6))
@@ -43,7 +38,6 @@ class TimeZoneConfigTests(unittest.TestCase):
             {
                 "reference_offset": -6,
                 "reference_country": None,
-                "location_order": LOCATION_ORDER_WESTERN,
             },
         )
 
@@ -60,7 +54,6 @@ class TimeZoneConfigTests(unittest.TestCase):
             {
                 "reference_offset": -7,
                 "reference_country": "United States (Mountain)",
-                "location_order": LOCATION_ORDER_WESTERN,
             },
         )
 
@@ -69,15 +62,6 @@ class TimeZoneConfigTests(unittest.TestCase):
         self.assertEqual(self.config.load_reference_offset(), 5.5)
         self.assertTrue(self.config.save_reference_offset(-2.5))
         self.assertEqual(self.config.load_reference_offset(), -2.5)
-
-    def test_reference_and_location_order_are_preserved_together(self):
-        self.config.save_reference_offset(-6)
-        self.config.save_location_order(LOCATION_ORDER_EASTERN)
-        self.assertEqual(self.config.load_reference_offset(), -6)
-        self.assertEqual(self.config.load_location_order(), LOCATION_ORDER_EASTERN)
-        self.config.save_location_order(LOCATION_ORDER_WESTERN)
-        self.assertEqual(self.config.load_reference_offset(), -6)
-
 
 if __name__ == "__main__":
     unittest.main()

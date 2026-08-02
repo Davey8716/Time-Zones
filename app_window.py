@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 import os
 from pathlib import Path
 import re
+from zoneinfo import ZoneInfo
 
 from PySide6.QtCore import QEvent, QPoint, QPropertyAnimation, QSize, Qt, QTimer
 from PySide6.QtGui import (
@@ -22,7 +23,6 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication,
-    QButtonGroup,
     QFrame,
     QGridLayout,
     QGraphicsDropShadowEffect,
@@ -41,22 +41,24 @@ from PySide6.QtWidgets import (
 )
 
 from timezone_config import (
-    LOCATION_ORDER_EASTERN,
-    LOCATION_ORDER_WESTERN,
     TimeZoneConfig,
-    is_valid_location_order,
     is_valid_reference_offset,
 )
 from timezone_data import (
     COUNTRIES,
+    COUNTRY_DROPDOWN_LABELS,
     COUNTRY_TIME_ZONES,
     COUNTRY_ZONE_OPTIONS,
     OFFSET_ORDER,
     Location,
+    OffsetTransition,
     Offset,
     TimeZoneSnapshot,
+    country_for_dropdown_text,
     format_gmt_offset,
+    next_offset_transition,
     offset_for,
+    region_for_zone,
     snapshots,
     time_zone_for_country,
 )
@@ -208,13 +210,16 @@ class TitleBar(QFrame):
         country_search = QComboBox()
         country_search.setObjectName("countrySearch")
         country_search.setEditable(True)
-        country_search.addItems(COUNTRIES)
+        for country, label in zip(COUNTRIES, COUNTRY_DROPDOWN_LABELS):
+            country_search.addItem(label, country)
         country_search.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         country_search.setCurrentIndex(-1)
         country_search.lineEdit().clear()
         country_search.setPlaceholderText("Search country")
-        longest_country = max(COUNTRIES, key=len)
-        popup_width = country_search.fontMetrics().horizontalAdvance(longest_country) + 52
+        popup_width = max(
+            country_search.fontMetrics().horizontalAdvance(label)
+            for label in COUNTRY_DROPDOWN_LABELS
+        ) + 52
         country_search.setFixedWidth(260)
         country_search.view().setMinimumWidth(popup_width)
         country_search.setMaxVisibleItems(18)
@@ -225,7 +230,7 @@ class TitleBar(QFrame):
         country_search.setFixedHeight(30)
         country_search.setToolTip("Search for a country")
         country_search.activated[int].connect(
-            lambda index: window.search_country(country_search.itemText(index))
+            lambda index: window.search_country(country_search.itemData(index))
         )
         country_search.lineEdit().returnPressed.connect(
             lambda: window.search_country(country_search.currentText())
@@ -282,7 +287,7 @@ class TitleBar(QFrame):
 
 
 class LocationPairCell(QWidget):
-    """A compact, two-line location pair used within a time-zone row."""
+    """A compact selected-location summary used within a time-zone row."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -298,30 +303,44 @@ class LocationPairCell(QWidget):
         self.city_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.city_label.setWordWrap(True)
 
+        self.transition_label = QLabel()
+        self.transition_label.setObjectName("locationTransitionLabel")
+        self.transition_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.transition_label.setWordWrap(True)
+
+        self.region_label = QLabel()
+        self.region_label.setObjectName("locationRegionLabel")
+        self.region_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(1)
         layout.addWidget(self.country_label)
         layout.addWidget(self.city_label)
+        layout.addWidget(self.transition_label)
+        layout.addWidget(self.region_label)
         self.set_location(None)
 
-    def set_location(self, location: Location | None) -> None:
+    def set_location(
+        self,
+        location: Location | None,
+        transition_text: str = "",
+        region_text: str = "",
+    ) -> None:
         if location is None:
             self.country_label.clear()
             self.city_label.clear()
+            self.transition_label.clear()
+            self.region_label.clear()
             self.setToolTip("")
             self.hide()
             return
 
         self.country_label.setText(location.country)
         self.city_label.setText(location.city)
+        self.transition_label.setText(transition_text)
+        self.region_label.setText(region_text)
         self.setToolTip(location.display_name)
-        self.show()
-
-    def set_fallback(self, message: str) -> None:
-        self.country_label.setText(message)
-        self.city_label.clear()
-        self.setToolTip("")
         self.show()
 
 
@@ -461,36 +480,20 @@ class TimeZoneRow(QWidget):
         self,
         snapshot: TimeZoneSnapshot,
         reference_date: date | None = None,
+        selected_location: Location | None = None,
+        transition_text: str = "",
+        region_text: str = "",
     ) -> None:
         self.locations = snapshot.locations
-        if snapshot.locations:
-            columns_by_count = {
-                1: (0,),
-                2: (0, 2),
-                3: (0, 1, 2),
-            }
-            visible_locations = snapshot.locations[:3]
-            for cell in self.location_cells:
-                self._locations_layout.removeWidget(cell)
-            for cell, location, column in zip(
-                self.location_cells,
-                visible_locations,
-                columns_by_count[len(visible_locations)],
-            ):
-                self._locations_layout.addWidget(cell, 0, column)
-                cell.set_location(location)
-            for cell in self.location_cells[len(visible_locations) :]:
-                cell.set_location(None)
-        else:
-            for cell in self.location_cells:
-                self._locations_layout.removeWidget(cell)
-            self._locations_layout.addWidget(self.location_cells[0], 0, 0, 1, 3)
-            fallback_message = "No major country or capital represented"
-            if snapshot.offset == 13.75:
-                fallback_message += " (this will change during the DST switchover)"
-            self.location_cells[0].set_fallback(fallback_message)
-            for cell in self.location_cells[1:]:
-                cell.set_location(None)
+        for cell in self.location_cells:
+            self._locations_layout.removeWidget(cell)
+            cell.set_location(None)
+        self._locations_layout.addWidget(self.location_cells[0], 0, 0, 1, 3)
+        self.location_cells[0].set_location(
+            selected_location,
+            transition_text,
+            region_text,
+        )
 
         self.time_label.setText(
             snapshot.local_datetime.strftime("%a, %d %b %Y  ·  %H:%M:%S")
@@ -544,7 +547,10 @@ class TimeZoneWindow(QMainWindow):
         self._config = TimeZoneConfig(config_path)
         self.reference_offset = self._config.load_reference_offset()
         self.reference_country = self._config.load_reference_country()
-        self.location_order = self._config.load_location_order()
+        self._transition_cache: dict[
+            str,
+            tuple[datetime, datetime, OffsetTransition | None],
+        ] = {}
 
         self.setWindowTitle("World Time Zones")
         self.setWindowIcon(resolve_build_icon())
@@ -594,8 +600,8 @@ class TimeZoneWindow(QMainWindow):
         self._timer.timeout.connect(self.refresh_times)
         self._timer.start(1000)
         current = datetime.now(timezone.utc)
-        self.refresh_times(current)
         self._restore_reference(current)
+        self.refresh_times(current)
 
     def _create_column_header(self) -> QWidget:
         header = QWidget()
@@ -638,41 +644,11 @@ class TimeZoneWindow(QMainWindow):
         globe_icon = QLabel()
         globe_icon.setObjectName("columnHeader")
         globe_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        globe_icon.setToolTip("Country / capital or centre")
+        globe_icon.setToolTip("Country / capital / clock change / region")
         globe_icon.setPixmap(create_column_icon("globe"))
 
-        western_order = QPushButton("<")
-        western_order.setObjectName("westernOrderButton")
-        western_order.setFixedSize(26, 26)
-        western_order.setCheckable(True)
-        western_order.setToolTip("Show Western locations first")
-        western_order.clicked.connect(
-            lambda _checked=False: self.set_location_order(LOCATION_ORDER_WESTERN)
-        )
-
-        eastern_order = QPushButton(">")
-        eastern_order.setObjectName("easternOrderButton")
-        eastern_order.setFixedSize(26, 26)
-        eastern_order.setCheckable(True)
-        eastern_order.setToolTip("Show Eastern locations first")
-        eastern_order.clicked.connect(
-            lambda _checked=False: self.set_location_order(LOCATION_ORDER_EASTERN)
-        )
-
-        location_order_group = QButtonGroup(self)
-        location_order_group.setExclusive(True)
-        location_order_group.addButton(western_order)
-        location_order_group.addButton(eastern_order)
-        western_order.setChecked(self.location_order == LOCATION_ORDER_WESTERN)
-        eastern_order.setChecked(self.location_order == LOCATION_ORDER_EASTERN)
-        self._location_order_group = location_order_group
-        self._western_order_button = western_order
-        self._eastern_order_button = eastern_order
-
         country_layout.addStretch()
-        country_layout.addWidget(western_order, 0, Qt.AlignmentFlag.AlignVCenter)
         country_layout.addWidget(globe_icon, 0, Qt.AlignmentFlag.AlignVCenter)
-        country_layout.addWidget(eastern_order, 0, Qt.AlignmentFlag.AlignVCenter)
         country_layout.addStretch()
         layout.addWidget(country_header, 1)
 
@@ -718,9 +694,16 @@ class TimeZoneWindow(QMainWindow):
         menu = QMenu(self)
         action = menu.addAction(self.reference_action_text(row.offset))
         action.triggered.connect(
-            lambda _checked=False, offset=row.offset: self.set_reference_offset(offset)
+            lambda _checked=False, offset=row.offset: self._select_reference_offset(
+                offset
+            )
         )
         return menu
+
+    def _select_reference_offset(self, offset: Offset) -> None:
+        current = datetime.now(timezone.utc)
+        self.set_reference_offset(offset, at_utc=current)
+        self.refresh_times(current)
 
     def set_reference_offset(
         self,
@@ -730,38 +713,61 @@ class TimeZoneWindow(QMainWindow):
     ) -> None:
         if not is_valid_reference_offset(offset):
             raise ValueError(f"Invalid reference offset: {offset}")
-        self.reference_offset = offset
-        for row in self._rows.values():
-            row.set_reference_offset(offset)
+        current = at_utc or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        else:
+            current = current.astimezone(timezone.utc)
         selected_country = country or self._country_for_offset(
-            offset, at_utc or datetime.now(timezone.utc)
+            offset, current
         )
-        country_index = self.title_bar.country_search.findText(
-            selected_country, Qt.MatchFlag.MatchFixedString
-        )
+        country_index = self.title_bar.country_search.findData(selected_country)
         if country_index >= 0:
-            self.title_bar.country_search.setCurrentIndex(country_index)
-            self.reference_country = selected_country
+            self._apply_active_reference(offset, selected_country)
             self._config.save_reference(offset, selected_country)
-        self._highlight_offset(offset)
 
     def _restore_reference(self, at_utc: datetime) -> None:
-        """Restore a saved country/offset pair after live rows are populated."""
-        offset = self.reference_offset
+        """Restore the active country reference without changing row content."""
         country = self.reference_country
-        country_index = self.title_bar.country_search.findText(
-            country or "", Qt.MatchFlag.MatchFixedString
-        )
-        if country_index < 0:
-            country = (
-                self._gmt_country(at_utc)
-                if offset == 0
-                else self._country_for_offset(offset, at_utc)
-            )
-        current_offset = self._offset_for_country(country or "", at_utc)
-        if current_offset is not None:
-            offset = current_offset
-        self.set_reference_offset(offset, country=country, at_utc=at_utc)
+        if country is None or time_zone_for_country(country) is None:
+            self._set_fixed_reference_offset(self.reference_offset)
+            return
+        offset = self._offset_for_country(country, at_utc)
+        if offset is None:
+            self._set_fixed_reference_offset(self.reference_offset)
+            return
+        self._apply_active_reference(offset, country)
+        self._config.save_reference(offset, country)
+
+    def _apply_active_reference(self, offset: Offset, country: str) -> None:
+        self.reference_offset = offset
+        self.reference_country = country
+        for row in self._rows.values():
+            row.set_reference_offset(offset)
+        country_index = self.title_bar.country_search.findData(country)
+        if country_index >= 0:
+            self.title_bar.country_search.setCurrentIndex(country_index)
+        self._highlight_offset(offset)
+
+    def _set_fixed_reference_offset(
+        self,
+        offset: Offset,
+        flash: bool = False,
+    ) -> None:
+        if not is_valid_reference_offset(offset):
+            raise ValueError(f"Invalid reference offset: {offset}")
+        self.reference_offset = offset
+        self.reference_country = None
+        self._clear_transition_cache()
+        for row in self._rows.values():
+            row.set_reference_offset(offset)
+        self.title_bar.country_search.setCurrentIndex(-1)
+        self.title_bar.country_search.lineEdit().clear()
+        self._config.save_reference_offset(offset)
+        self._highlight_offset(offset, flash=flash)
+
+    def _clear_transition_cache(self) -> None:
+        self._transition_cache.clear()
 
     @staticmethod
     def _offset_for_country(country: str, at_utc: datetime) -> Offset | None:
@@ -807,34 +813,16 @@ class TimeZoneWindow(QMainWindow):
                     return country
         return self.title_bar.country_search.currentText()
 
-    def set_location_order(self, location_order: str) -> None:
-        if not is_valid_location_order(location_order):
-            raise ValueError(f"Invalid location order: {location_order}")
-        self.location_order = location_order
-        self._western_order_button.setChecked(
-            location_order == LOCATION_ORDER_WESTERN
-        )
-        self._eastern_order_button.setChecked(
-            location_order == LOCATION_ORDER_EASTERN
-        )
-        self._config.save_location_order(location_order)
-        self.refresh_times()
-
     def reset_reference(self) -> None:
         current = datetime.now(timezone.utc)
-        country = self._gmt_country(current)
-        offset = self._offset_for_country(country, current) or 0
-        self.set_reference_offset(offset, country=country, at_utc=current)
-        self._highlight_offset(offset, flash=True)
+        self._set_fixed_reference_offset(0, flash=True)
+        self.refresh_times(current)
 
-    @staticmethod
-    def _gmt_country(_at_utc: datetime) -> str:
-        """Return the country used when resetting the reference."""
-        return "Portugal (Mainland)"
-
-    def search_country(self, country: str) -> None:
+    def search_country(self, country: str | None) -> None:
         """Centre and highlight the current offset row for a selected country."""
-        country_name = country.strip()
+        if not isinstance(country, str):
+            return
+        country_name = country_for_dropdown_text(country) or country.strip()
         if not country_name:
             return
         zone_id = time_zone_for_country(country_name)
@@ -846,6 +834,36 @@ class TimeZoneWindow(QMainWindow):
             return
         offset, _abbreviation = result
         self.set_reference_offset(offset, country=country_name, at_utc=current)
+        self.refresh_times(current)
+
+    def _transition_text(self, location: Location, at_utc: datetime) -> str:
+        zone_id = location.zone_id
+        cached = self._transition_cache.get(zone_id)
+        cache_expired = (
+            cached is None
+            or at_utc < cached[0]
+            or at_utc >= cached[1]
+        )
+        if cache_expired:
+            transition = next_offset_transition(zone_id, at_utc)
+            valid_until = (
+                transition.at_utc
+                if transition is not None
+                else at_utc + timedelta(days=550)
+            )
+            cached = (at_utc, valid_until, transition)
+            self._transition_cache[zone_id] = cached
+        transition = cached[2]
+        if transition is None:
+            return "No seasonal clock changes"
+        zone = ZoneInfo(zone_id)
+        transition_date = transition.at_utc.astimezone(zone).date()
+        current_year = at_utc.astimezone(zone).year
+        date_format = "%d %b" if transition_date.year == current_year else "%d %b %Y"
+        return (
+            f"Moves to {format_gmt_offset(transition.offset)} on "
+            f"{transition_date.strftime(date_format)}"
+        )
 
     def _highlight_offset(self, offset: Offset, flash: bool = False) -> None:
         row = self._rows[offset]
@@ -883,11 +901,20 @@ class TimeZoneWindow(QMainWindow):
 
     def refresh_times(self, at_utc: datetime | None = None) -> None:
         current = at_utc or datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        else:
+            current = current.astimezone(timezone.utc)
         country = self.reference_country
         current_offset = self._offset_for_country(country or "", current)
-        if current_offset is not None and current_offset != self.reference_offset:
-            self.set_reference_offset(current_offset, country=country, at_utc=current)
-        current_snapshots = snapshots(current, location_order=self.location_order)
+        if (
+            country is not None
+            and current_offset is not None
+            and current_offset != self.reference_offset
+        ):
+            self._apply_active_reference(current_offset, country)
+            self._config.save_reference(current_offset, country)
+        current_snapshots = snapshots(current)
         reference_snapshot = next(
             snapshot
             for snapshot in current_snapshots
@@ -895,7 +922,18 @@ class TimeZoneWindow(QMainWindow):
         )
         reference_date = reference_snapshot.local_datetime.date()
         for snapshot in current_snapshots:
-            self._rows[snapshot.offset].update_snapshot(snapshot, reference_date)
+            row_location = snapshot.locations[0] if snapshot.locations else None
+            self._rows[snapshot.offset].update_snapshot(
+                snapshot,
+                reference_date,
+                row_location,
+                self._transition_text(row_location, current)
+                if row_location is not None
+                else "",
+                region_for_zone(row_location.zone_id)
+                if row_location is not None
+                else "",
+            )
 
     def _centre_on_screen(self) -> None:
         screen = self.screen() or QApplication.primaryScreen()
