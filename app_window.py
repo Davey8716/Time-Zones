@@ -853,7 +853,7 @@ class TimeZoneWindow(QMainWindow):
         if result is None:
             return
         offset, _abbreviation = result
-        self._highlight_offset(offset)
+        self.set_reference_offset(offset)
 
     def _highlight_offset(self, offset: Offset, flash: bool = False) -> None:
         row = self._rows[offset]

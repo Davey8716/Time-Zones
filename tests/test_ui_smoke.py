@@ -256,8 +256,10 @@ class UiSmokeTests(unittest.TestCase):
             self.assertLess(search_label.geometry().bottom(), search.geometry().top())
             self.assertGreaterEqual(search_label.geometry().left(), 12)
             self.assertGreaterEqual(search.geometry().left(), 12)
-            window.search_country("Japan")
+            search.activated.emit(search.findText("Japan"))
             row = window._rows[9]
+            self.assertEqual(window.reference_offset, 9)
+            self.assertEqual(TimeZoneConfig(self.config_path).load_reference_offset(), 9)
             self.assertIs(window._highlighted_row, row)
             self.assertTrue(row.property("searchHighlight"))
             self.assertTrue(row.graphicsEffect().isEnabled())
@@ -270,9 +272,20 @@ class UiSmokeTests(unittest.TestCase):
                     key=len,
                 )),
             )
-            window.search_country("India")
+            search.setEditText("India")
+            search.lineEdit().returnPressed.emit()
+            self.assertEqual(window.reference_offset, 5.5)
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_offset(), 5.5
+            )
             self.assertIs(window._highlighted_row, window._rows[5.5])
             self.assertFalse(row.property("searchHighlight"))
+            window.search_country("")
+            window.search_country("Not a country")
+            self.assertEqual(window.reference_offset, 5.5)
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_offset(), 5.5
+            )
         finally:
             window._timer.stop()
             window.close()
