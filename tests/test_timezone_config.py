@@ -23,12 +23,15 @@ class TimeZoneConfigTests(unittest.TestCase):
 
     def test_missing_malformed_and_invalid_files_default_to_gmt(self):
         self.assertEqual(self.config.load_reference_offset(), DEFAULT_REFERENCE_OFFSET)
+        self.assertIsNone(self.config.load_reference_country())
         self.path.write_text("not json", encoding="utf-8")
         self.assertEqual(self.config.load_reference_offset(), DEFAULT_REFERENCE_OFFSET)
         self.path.write_text('{"reference_offset": 14.25}', encoding="utf-8")
         self.assertEqual(self.config.load_reference_offset(), DEFAULT_REFERENCE_OFFSET)
         self.path.write_text('{"reference_offset": true}', encoding="utf-8")
         self.assertEqual(self.config.load_reference_offset(), DEFAULT_REFERENCE_OFFSET)
+        self.path.write_text('{"reference_country": 42}', encoding="utf-8")
+        self.assertIsNone(self.config.load_reference_country())
         self.path.write_text('{"location_order": "invalid"}', encoding="utf-8")
         self.assertEqual(self.config.load_location_order(), DEFAULT_LOCATION_ORDER)
 
@@ -39,6 +42,24 @@ class TimeZoneConfigTests(unittest.TestCase):
             json.loads(self.path.read_text(encoding="utf-8")),
             {
                 "reference_offset": -6,
+                "reference_country": None,
+                "location_order": LOCATION_ORDER_WESTERN,
+            },
+        )
+
+    def test_reference_country_is_saved_atomically_with_offset(self):
+        self.assertTrue(
+            self.config.save_reference(-7, "United States (Mountain)")
+        )
+        self.assertEqual(self.config.load_reference_offset(), -7)
+        self.assertEqual(
+            self.config.load_reference_country(), "United States (Mountain)"
+        )
+        self.assertEqual(
+            json.loads(self.path.read_text(encoding="utf-8")),
+            {
+                "reference_offset": -7,
+                "reference_country": "United States (Mountain)",
                 "location_order": LOCATION_ORDER_WESTERN,
             },
         )

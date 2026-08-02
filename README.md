@@ -48,9 +48,10 @@ Choose a country or one of its displayed regional time zones, such as
 **United States (Mountain)**, from **World countries list** to set its live
 offset as the reference. Regional names in the dropdown match the names shown
 in the time-zone rows. The reference row is blue, earlier offsets are red, and
-later offsets are green. The choice is saved for the current Windows user in local
-app data as `timezone_config.json`. You can also right-click a visible GMT row
-and choose **Set GMT±N as my reference**. Use the reset icon beside the GMT
+later offsets are green. The choice is saved for the current Windows user in
+local app data as `timezone_config.json`, including both the exact dropdown
+location and its reference offset. You can also right-click a visible GMT row and choose
+**Set GMT±N as my reference**. Use the reset icon beside the GMT
 header icon to return to GMT.
 
 Use the **<** and **>** buttons beside the globe header icon to show Western or

@@ -176,6 +176,10 @@ class UiSmokeTests(unittest.TestCase):
             window.findChild(QPushButton, "resetButton").click()
             self.assertEqual(window.reference_offset, 0)
             self.assertEqual(TimeZoneConfig(self.config_path).load_reference_offset(), 0)
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_country(),
+                "Portugal (Mainland)",
+            )
             search = window.findChild(QComboBox, "countrySearch")
             self.assertEqual(
                 search.currentText(),
@@ -203,6 +207,109 @@ class UiSmokeTests(unittest.TestCase):
                 abs(gmt_rect.center().y() - viewport_center),
                 gmt_rect.height(),
             )
+        finally:
+            window._timer.stop()
+            window.close()
+
+    def test_default_reference_is_saved_selected_highlighted_and_centred(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            window.show()
+            self.app.processEvents()
+            config = TimeZoneConfig(self.config_path)
+            self.assertEqual(window.reference_offset, 0)
+            self.assertEqual(window.reference_country, "Portugal (Mainland)")
+            self.assertEqual(
+                window.title_bar.country_search.currentText(),
+                "Portugal (Mainland)",
+            )
+            self.assertEqual(config.load_reference_offset(), 0)
+            self.assertEqual(
+                config.load_reference_country(), "Portugal (Mainland)"
+            )
+            self.assertIs(window._highlighted_row, window._rows[0])
+            gmt_rect = window.list_widget.visualItemRect(window._items[0])
+            self.assertLessEqual(
+                abs(
+                    gmt_rect.center().y()
+                    - window.list_widget.viewport().rect().center().y()
+                ),
+                gmt_rect.height(),
+            )
+        finally:
+            window._timer.stop()
+            window.close()
+
+    def test_saved_country_restores_exactly_and_controls_dst_offset(self):
+        config = TimeZoneConfig(self.config_path)
+        config.save_reference(-7, "United States (Arizona)")
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            window.show()
+            self.app.processEvents()
+            self.assertEqual(window.reference_offset, -7)
+            self.assertEqual(
+                window.title_bar.country_search.currentText(),
+                "United States (Arizona)",
+            )
+            reference_rect = window.list_widget.visualItemRect(window._items[-7])
+            self.assertLessEqual(
+                abs(
+                    reference_rect.center().y()
+                    - window.list_widget.viewport().rect().center().y()
+                ),
+                reference_rect.height(),
+            )
+
+            window.reference_offset = -5
+            window.reference_country = "United States (Eastern)"
+            summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
+            window._restore_reference(summer)
+            self.app.processEvents()
+            self.assertEqual(window.reference_offset, -4)
+            self.assertEqual(config.load_reference_offset(), -4)
+            self.assertEqual(
+                config.load_reference_country(), "United States (Eastern)"
+            )
+
+            window.reference_offset = 0
+            window.reference_country = "Portugal (Mainland)"
+            window._restore_reference(summer)
+            self.assertEqual(window.reference_offset, 0)
+            self.assertEqual(config.load_reference_offset(), 0)
+        finally:
+            window._timer.stop()
+            window.close()
+
+    def test_legacy_offset_only_reference_is_migrated_to_a_country(self):
+        TimeZoneConfig(self.config_path).save_reference_offset(5.5)
+        self.assertIsNone(
+            TimeZoneConfig(self.config_path).load_reference_country()
+        )
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            country = window.title_bar.country_search.currentText()
+            self.assertTrue(country)
+            self.assertEqual(window.reference_offset, 5.5)
+            self.assertEqual(window.reference_country, country)
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_country(), country
+            )
+        finally:
+            window._timer.stop()
+            window.close()
+
+    def test_removed_saved_country_falls_back_to_the_saved_offset(self):
+        config = TimeZoneConfig(self.config_path)
+        config.save_reference(5.5, "Removed Country")
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            country = window.title_bar.country_search.currentText()
+            self.assertNotEqual(country, "Removed Country")
+            self.assertTrue(country)
+            self.assertEqual(window.reference_offset, 5.5)
+            self.assertEqual(window.reference_country, country)
+            self.assertEqual(config.load_reference_country(), country)
         finally:
             window._timer.stop()
             window.close()
@@ -260,6 +367,8 @@ class UiSmokeTests(unittest.TestCase):
     def test_row_context_menu_sets_reference_only(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
         try:
+            window.show()
+            self.app.processEvents()
             self.assertEqual(
                 window.list_widget.contextMenuPolicy(),
                 Qt.ContextMenuPolicy.CustomContextMenu,
@@ -281,10 +390,23 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(
                 TimeZoneConfig(self.config_path).load_reference_offset(), -5
             )
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_country(),
+                expected_country,
+            )
             self.assertIs(window._highlighted_row, window._rows[-5])
             self.assertTrue(window._rows[-5].property("searchHighlight"))
             self.assertEqual(
                 window.title_bar.country_search.currentText(), expected_country
+            )
+            self.app.processEvents()
+            reference_rect = window.list_widget.visualItemRect(window._items[-5])
+            self.assertLessEqual(
+                abs(
+                    reference_rect.center().y()
+                    - window.list_widget.viewport().rect().center().y()
+                ),
+                reference_rect.height(),
             )
 
             with patch.object(window, "_build_reference_menu") as build_menu:
@@ -309,13 +431,25 @@ class UiSmokeTests(unittest.TestCase):
             self.assertGreaterEqual(search_label.geometry().left(), 12)
             self.assertGreaterEqual(search.geometry().left(), 12)
             search.activated.emit(search.findText("Japan"))
+            self.app.processEvents()
             row = window._rows[9]
             self.assertEqual(window.reference_offset, 9)
             self.assertEqual(search.currentText(), "Japan")
             self.assertEqual(TimeZoneConfig(self.config_path).load_reference_offset(), 9)
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_country(), "Japan"
+            )
             self.assertIs(window._highlighted_row, row)
             self.assertTrue(row.property("searchHighlight"))
             self.assertTrue(row.graphicsEffect().isEnabled())
+            reference_rect = window.list_widget.visualItemRect(window._items[9])
+            self.assertLessEqual(
+                abs(
+                    reference_rect.center().y()
+                    - window.list_widget.viewport().rect().center().y()
+                ),
+                reference_rect.height(),
+            )
             self.assertEqual(search.toolTip(), "Search for a country")
             self.assertEqual(search.count(), len(COUNTRIES))
             self.assertGreaterEqual(
@@ -331,6 +465,9 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(search.currentText(), "India")
             self.assertEqual(
                 TimeZoneConfig(self.config_path).load_reference_offset(), 5.5
+            )
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_country(), "India"
             )
             self.assertIs(window._highlighted_row, window._rows[5.5])
             self.assertFalse(row.property("searchHighlight"))

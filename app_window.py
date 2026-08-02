@@ -706,6 +706,7 @@ class TimeZoneWindow(QMainWindow):
         self._highlighted_row: TimeZoneRow | None = None
         self._config = TimeZoneConfig(config_path)
         self.reference_offset = self._config.load_reference_offset()
+        self.reference_country = self._config.load_reference_country()
         self.location_order = self._config.load_location_order()
 
         self.setWindowTitle("World Time Zones")
@@ -739,7 +740,6 @@ class TimeZoneWindow(QMainWindow):
         self.list_widget.customContextMenuRequested.connect(self._show_reference_menu)
         root.addWidget(self.list_widget, 1)
         self._create_rows()
-        QTimer.singleShot(0, self._center_on_gmt)
 
         self.setStyleSheet(APP_STYLE)
         self._centre_on_screen()
@@ -756,7 +756,9 @@ class TimeZoneWindow(QMainWindow):
         self._timer.setTimerType(Qt.TimerType.PreciseTimer)
         self._timer.timeout.connect(self.refresh_times)
         self._timer.start(1000)
-        self.refresh_times()
+        current = datetime.now(timezone.utc)
+        self.refresh_times(current)
+        self._restore_reference(current)
 
     def _create_column_header(self) -> QWidget:
         header = QWidget()
@@ -892,8 +894,6 @@ class TimeZoneWindow(QMainWindow):
         self.reference_offset = offset
         for row in self._rows.values():
             row.set_reference_offset(offset)
-        self._config.save_reference_offset(offset)
-        self._highlight_offset(offset)
         selected_country = country or self._country_for_offset(
             offset, at_utc or datetime.now(timezone.utc)
         )
@@ -902,6 +902,31 @@ class TimeZoneWindow(QMainWindow):
         )
         if country_index >= 0:
             self.title_bar.country_search.setCurrentIndex(country_index)
+            self.reference_country = selected_country
+            self._config.save_reference(offset, selected_country)
+        self._highlight_offset(offset)
+
+    def _restore_reference(self, at_utc: datetime) -> None:
+        """Restore a saved country/offset pair after live rows are populated."""
+        offset = self.reference_offset
+        country = self.reference_country
+        country_index = self.title_bar.country_search.findText(
+            country or "", Qt.MatchFlag.MatchFixedString
+        )
+        if country_index >= 0:
+            if not (country == self._gmt_country(at_utc) and offset == 0):
+                zone_id = time_zone_for_country(country or "")
+                if zone_id is not None:
+                    result = offset_for(Location(country or "", "", zone_id), at_utc)
+                    if result is not None:
+                        offset = result[0]
+        else:
+            country = (
+                self._gmt_country(at_utc)
+                if offset == 0
+                else self._country_for_offset(offset, at_utc)
+            )
+        self.set_reference_offset(offset, country=country, at_utc=at_utc)
 
     def _country_for_offset(self, offset: Offset, at_utc: datetime) -> str:
         """Prefer a displayed country, then any alphabetical country-zone match."""
@@ -987,19 +1012,14 @@ class TimeZoneWindow(QMainWindow):
         else:
             row.set_search_highlight(True)
         self._highlighted_row = row
+        self._center_on_reference()
+        QTimer.singleShot(0, self._center_on_reference)
+
+    def _center_on_reference(self) -> None:
         self.list_widget.scrollToItem(
-            self._items[offset],
+            self._items[self.reference_offset],
             QListWidget.ScrollHint.PositionAtCenter,
         )
-
-    def _center_on_gmt(self) -> None:
-        gmt_index = OFFSET_ORDER.index(0)
-        gmt_item = self.list_widget.item(gmt_index)
-        if gmt_item is not None:
-            self.list_widget.scrollToItem(
-                gmt_item,
-                QListWidget.ScrollHint.PositionAtCenter,
-            )
 
     def _create_tray(self) -> None:
         self._tray = QSystemTrayIcon(self.windowIcon(), self)
