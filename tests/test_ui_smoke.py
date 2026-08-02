@@ -340,6 +340,23 @@ class UiSmokeTests(unittest.TestCase):
             self.assertIs(globe.parentWidget(), eastern.parentWidget())
             self.assertLess(globe.geometry().right(), western.geometry().left())
             self.assertLess(western.geometry().right(), eastern.geometry().left())
+            self.assertEqual(western.size(), eastern.size())
+            self.assertEqual(western.size().width(), 26)
+            self.assertEqual(western.size().height(), 26)
+            self.assertEqual(
+                western.geometry().center().y(), eastern.geometry().center().y()
+            )
+            self.assertLessEqual(
+                abs(
+                    western.geometry().center().y()
+                    - globe.geometry().center().y()
+                ),
+                1,
+            )
+            self.assertIn("padding: 0", APP_STYLE)
+            self.assertIn("text-align: center", APP_STYLE)
+            self.assertIn("background: #1b2b3a", APP_STYLE)
+            self.assertIn("border-color: #35506b", APP_STYLE)
             self.assertTrue(western.isChecked())
             self.assertFalse(eastern.isChecked())
 

@@ -106,20 +106,19 @@ QPushButton#westernOrderButton, QPushButton#easternOrderButton {
     border-radius: 4px;
     background: transparent;
     color: #758397;
+    padding: 0;
+    margin: 0;
+    text-align: center;
     font-size: 12pt;
     font-weight: 700;
-    min-width: 26px;
-    max-width: 26px;
-    min-height: 26px;
-    max-height: 26px;
 }
 QPushButton#westernOrderButton:hover, QPushButton#easternOrderButton:hover {
     background: #29313d;
     color: #dce5ef;
 }
 QPushButton#westernOrderButton:checked, QPushButton#easternOrderButton:checked {
-    background: #244d73;
-    border-color: #5caeff;
+    background: #1b2b3a;
+    border-color: #35506b;
     color: #ffffff;
 }
 QPushButton#windowButton {
@@ -806,6 +805,7 @@ class TimeZoneWindow(QMainWindow):
 
         western_order = QPushButton("<")
         western_order.setObjectName("westernOrderButton")
+        western_order.setFixedSize(26, 26)
         western_order.setCheckable(True)
         western_order.setToolTip("Show Western locations first")
         western_order.clicked.connect(
@@ -814,6 +814,7 @@ class TimeZoneWindow(QMainWindow):
 
         eastern_order = QPushButton(">")
         eastern_order.setObjectName("easternOrderButton")
+        eastern_order.setFixedSize(26, 26)
         eastern_order.setCheckable(True)
         eastern_order.setToolTip("Show Eastern locations first")
         eastern_order.clicked.connect(
@@ -831,9 +832,9 @@ class TimeZoneWindow(QMainWindow):
         self._eastern_order_button = eastern_order
 
         country_layout.addStretch()
-        country_layout.addWidget(globe_icon)
-        country_layout.addWidget(western_order)
-        country_layout.addWidget(eastern_order)
+        country_layout.addWidget(globe_icon, 0, Qt.AlignmentFlag.AlignVCenter)
+        country_layout.addWidget(western_order, 0, Qt.AlignmentFlag.AlignVCenter)
+        country_layout.addWidget(eastern_order, 0, Qt.AlignmentFlag.AlignVCenter)
         country_layout.addStretch()
         layout.addWidget(country_header, 1)
 
