@@ -506,20 +506,42 @@ class UiSmokeTests(unittest.TestCase):
                 window._allow_close = True
                 window.close()
 
-    def test_tray_double_click_toggles_visibility_and_uses_dark_menu(self):
+    def test_tray_click_restores_window_and_uses_dark_menu(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
         try:
             window._create_tray()
             window.show()
             self.app.processEvents()
 
-            window._tray_activated(QSystemTrayIcon.ActivationReason.DoubleClick)
+            window.toggle_visibility()
             self.assertFalse(window.isVisible())
             self.assertEqual(window._show_action.text(), "Show")
 
-            window._tray_activated(QSystemTrayIcon.ActivationReason.DoubleClick)
+            window._tray_activated(QSystemTrayIcon.ActivationReason.Trigger)
             self.assertTrue(window.isVisible())
             self.assertEqual(window._show_action.text(), "Hide")
+
+            window.showMinimized()
+            self.app.processEvents()
+            window._tray_activated(QSystemTrayIcon.ActivationReason.Trigger)
+            self.assertTrue(window.isVisible())
+            self.assertFalse(window.isMinimized())
+
+            window._tray_activated(QSystemTrayIcon.ActivationReason.Trigger)
+            self.assertTrue(window.isVisible())
+            window._tray_activated(QSystemTrayIcon.ActivationReason.Context)
+            self.assertTrue(window.isVisible())
+
+            window.toggle_visibility()
+            self.assertFalse(window.isVisible())
+            window._tray_activated(QSystemTrayIcon.ActivationReason.DoubleClick)
+            self.assertTrue(window.isVisible())
+
+            window._show_action.trigger()
+            self.assertFalse(window.isVisible())
+            self.assertEqual(window._show_action.text(), "Show")
+            window._tray_activated(QSystemTrayIcon.ActivationReason.Trigger)
+            self.assertTrue(window.isVisible())
 
             menu = window._tray.contextMenu()
             self.assertIsNotNone(menu)

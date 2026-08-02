@@ -29,7 +29,8 @@ shows the exact installation command for the interpreter that launched it.
 
 Only one copy runs at a time. Starting the program again restores the existing
 window. The custom **×** button hides the window to the notification area; use
-the tray menu's **Exit** action to quit completely.
+one left-click on the tray icon to restore and focus it. Use the tray menu's
+**Exit** action to quit completely.
 
 ## Display rules
 

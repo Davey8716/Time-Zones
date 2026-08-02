@@ -1022,8 +1022,11 @@ class TimeZoneWindow(QMainWindow):
             self.show_and_activate()
 
     def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
-        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
-            self.toggle_visibility()
+        if reason in {
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+        }:
+            self.show_and_activate()
 
     def quit_application(self) -> None:
         self._allow_close = True
