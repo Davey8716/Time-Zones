@@ -581,12 +581,16 @@ class TimeZoneRow(QWidget):
         self.locations_slot = QWidget()
         self.locations_slot.setObjectName("locationsSlot")
         self.locations_slot.setMinimumWidth(280)
-        locations_layout = QHBoxLayout(self.locations_slot)
+        locations_layout = QGridLayout(self.locations_slot)
         locations_layout.setContentsMargins(0, 2, 0, 2)
-        locations_layout.setSpacing(4)
+        locations_layout.setHorizontalSpacing(0)
+        locations_layout.setVerticalSpacing(0)
+        for column in range(3):
+            locations_layout.setColumnStretch(column, 1)
+        self._locations_layout = locations_layout
         self.location_cells = [LocationPairCell() for _ in range(3)]
-        for cell in self.location_cells:
-            locations_layout.addWidget(cell, 1)
+        for column, cell in enumerate(self.location_cells):
+            locations_layout.addWidget(cell, 0, column)
 
         self.time_label = QLabel()
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -638,17 +642,31 @@ class TimeZoneRow(QWidget):
     def update_snapshot(self, snapshot: TimeZoneSnapshot) -> None:
         self.locations = snapshot.locations
         if snapshot.locations:
-            for cell, location in zip(self.location_cells, snapshot.locations):
+            columns_by_count = {
+                1: (0,),
+                2: (0, 2),
+                3: (0, 1, 2),
+            }
+            visible_locations = snapshot.locations[:3]
+            for cell in self.location_cells:
+                self._locations_layout.removeWidget(cell)
+            for cell, location, column in zip(
+                self.location_cells,
+                visible_locations,
+                columns_by_count[len(visible_locations)],
+            ):
+                self._locations_layout.addWidget(cell, 0, column)
                 cell.set_location(location)
-            for cell in self.location_cells[len(snapshot.locations) :]:
+            for cell in self.location_cells[len(visible_locations) :]:
                 cell.set_location(None)
         else:
+            for cell in self.location_cells:
+                self._locations_layout.removeWidget(cell)
+            self._locations_layout.addWidget(self.location_cells[0], 0, 0, 1, 3)
             fallback_message = "No major country or capital represented"
             if snapshot.offset == 13.75:
                 fallback_message += " (this will change during the DST switchover)"
-            self.location_cells[0].set_fallback(
-                fallback_message
-            )
+            self.location_cells[0].set_fallback(fallback_message)
             for cell in self.location_cells[1:]:
                 cell.set_location(None)
 

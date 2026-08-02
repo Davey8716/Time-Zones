@@ -476,7 +476,31 @@ class UiSmokeTests(unittest.TestCase):
                 [(location.country, location.city) for location in locations],
             )
             self.assertEqual(visible[0].toolTip(), "United Kingdom — London")
-            self.assertLessEqual(max(cell.width() for cell in visible) - min(cell.width() for cell in visible), 1)
+            self.assertLessEqual(
+                max(cell.width() for cell in visible)
+                - min(cell.width() for cell in visible),
+                1,
+            )
+            three_column_centres = tuple(
+                cell.geometry().center().x() for cell in visible
+            )
+
+            row.update_snapshot(
+                TimeZoneSnapshot(
+                    offset=0,
+                    local_datetime=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    locations=locations[:2],
+                    abbreviations=("GMT",),
+                )
+            )
+            self.app.processEvents()
+            visible = [cell for cell in row.location_cells if not cell.isHidden()]
+            self.assertEqual(len(visible), 2)
+            for actual, expected in zip(
+                (cell.geometry().center().x() for cell in visible),
+                (three_column_centres[0], three_column_centres[2]),
+            ):
+                self.assertAlmostEqual(actual, expected, delta=1)
 
             row.update_snapshot(
                 TimeZoneSnapshot(
@@ -486,8 +510,31 @@ class UiSmokeTests(unittest.TestCase):
                     abbreviations=("GMT",),
                 )
             )
+            self.app.processEvents()
+            visible = [cell for cell in row.location_cells if not cell.isHidden()]
+            self.assertEqual(len(visible), 1)
+            self.assertAlmostEqual(
+                visible[0].geometry().center().x(),
+                three_column_centres[0],
+                delta=1,
+            )
+
+            row.update_snapshot(
+                TimeZoneSnapshot(
+                    offset=0,
+                    local_datetime=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    locations=(),
+                    abbreviations=("GMT",),
+                )
+            )
+            self.app.processEvents()
+            fallback = row.location_cells[0]
             self.assertEqual(
-                len([cell for cell in row.location_cells if not cell.isHidden()]), 1
+                fallback.geometry().center().x(),
+                row.locations_slot.rect().center().x(),
+            )
+            self.assertGreaterEqual(
+                fallback.width(), row.locations_slot.width() - 1
             )
         finally:
             window._timer.stop()
