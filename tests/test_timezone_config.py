@@ -46,6 +46,8 @@ class TimeZoneConfigTests(unittest.TestCase):
     def test_fractional_reference_offset_is_saved_and_restored(self):
         self.assertTrue(self.config.save_reference_offset(5.5))
         self.assertEqual(self.config.load_reference_offset(), 5.5)
+        self.assertTrue(self.config.save_reference_offset(-2.5))
+        self.assertEqual(self.config.load_reference_offset(), -2.5)
 
     def test_reference_and_location_order_are_preserved_together(self):
         self.config.save_reference_offset(-6)

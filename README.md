@@ -38,6 +38,9 @@ one left-click on the tray icon to restore and focus it. Use the tray menu's
   quarter-hour offsets. The initial view is centred on GMT.
 - Times use a 24-hour clock and include the local date and seconds.
 - Locations are regrouped using current IANA daylight-saving rules.
+- Fractional rows include real capitals such as Kathmandu and New Delhi. For
+  multi-zone territories, the app uses an appropriate regional centre such as
+  Taiohae, Eucla, Waitangi, or Kiritimati.
 
 ## Reference time zone
 

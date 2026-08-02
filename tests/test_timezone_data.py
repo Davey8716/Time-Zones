@@ -22,14 +22,17 @@ class TimeZoneDataTests(unittest.TestCase):
         self.assertEqual(OFFSET_ORDER[-1], 14)
         self.assertIn(5.5, OFFSET_ORDER)
         self.assertIn(5.75, OFFSET_ORDER)
+        self.assertIn(-2.5, OFFSET_ORDER)
         self.assertIn(12.75, OFFSET_ORDER)
 
     def test_gmt_offset_formatting(self):
         self.assertEqual(format_gmt_offset(0), "GMT")
         self.assertEqual(format_gmt_offset(7), "GMT+7")
         self.assertEqual(format_gmt_offset(-12), "GMT-12")
+        self.assertEqual(format_gmt_offset(-2.5), "GMT-2:30")
         self.assertEqual(format_gmt_offset(5.5), "GMT+5:30")
         self.assertEqual(format_gmt_offset(5.75), "GMT+5:45")
+        self.assertEqual(format_gmt_offset(12.75), "GMT+12:45")
 
     def test_london_moves_rows_for_daylight_saving(self):
         london = Location("United Kingdom", "London", "Europe/London")
@@ -44,6 +47,43 @@ class TimeZoneDataTests(unittest.TestCase):
         kiritimati = Location("Kiribati", "Kiritimati", "Pacific/Kiritimati")
         self.assertEqual(offset_for(kolkata, at_utc), (5.5, "IST"))
         self.assertEqual(offset_for(kiritimati, at_utc), (14, "+14"))
+
+    def test_fractional_and_dateline_rows_have_real_locations(self):
+        winter = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
+        summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
+        winter_rows = {row.offset: row for row in snapshots(winter)}
+        summer_rows = {row.offset: row for row in snapshots(summer)}
+
+        self.assertEqual(winter_rows[5.5].locations[0].country, "India")
+        self.assertEqual(winter_rows[5.75].locations[0].country, "Nepal")
+        self.assertEqual(winter_rows[5.75].locations[0].city, "Kathmandu")
+        self.assertEqual(winter_rows[-3.5].locations[0].city, "St. John's")
+        self.assertEqual(summer_rows[-2.5].locations[0].city, "St. John's")
+        self.assertEqual(winter_rows[10.5].locations[0].city, "Adelaide")
+        self.assertEqual(summer_rows[9.5].locations[0].city, "Adelaide")
+        self.assertEqual(winter_rows[13.75].locations[0].city, "Waitangi")
+        self.assertEqual(summer_rows[12.75].locations[0].city, "Waitangi")
+        self.assertEqual(
+            {location.country for location in summer_rows[13].locations},
+            {"Samoa", "Tonga"},
+        )
+        self.assertEqual(summer_rows[14].locations[0].city, "Kiritimati")
+
+    def test_every_current_world_offset_has_a_curated_location(self):
+        for at_utc in (
+            datetime(2026, 1, 15, 12, tzinfo=timezone.utc),
+            datetime(2026, 7, 15, 12, tzinfo=timezone.utc),
+        ):
+            actual_offsets = {
+                result[0]
+                for country, zone_id in COUNTRY_ZONE_OPTIONS
+                if (result := offset_for(Location(country, "", zone_id), at_utc))
+                is not None
+            }
+            populated_offsets = {
+                row.offset for row in snapshots(at_utc) if row.locations
+            }
+            self.assertTrue(actual_offsets.issubset(populated_offsets))
 
     def test_country_catalogue_is_complete_and_alphabetical(self):
         self.assertEqual(len(COUNTRIES), 249)
