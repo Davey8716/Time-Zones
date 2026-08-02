@@ -816,6 +816,7 @@ class TimeZoneWindow(QMainWindow):
         for row in self._rows.values():
             row.set_reference_offset(offset)
         self._config.save_reference_offset(offset)
+        self._highlight_offset(offset)
 
     def set_location_order(self, location_order: str) -> None:
         if not is_valid_location_order(location_order):

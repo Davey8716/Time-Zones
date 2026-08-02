@@ -149,6 +149,9 @@ class UiSmokeTests(unittest.TestCase):
             self.app.processEvents()
             window.set_reference_offset(-6)
             self.assertEqual(window.reference_offset, -6)
+            self.assertIs(window._highlighted_row, window._rows[-6])
+            self.assertTrue(window._rows[-6].property("searchHighlight"))
+            self.assertTrue(window._rows[-6]._search_glow.isEnabled())
             self.assertEqual(
                 window._rows[-6].offset_label.objectName(), "referenceOffsetLabel"
             )
@@ -225,6 +228,19 @@ class UiSmokeTests(unittest.TestCase):
         summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
         self.assertEqual(TimeZoneWindow._gmt_country(winter), "Portugal")
         self.assertEqual(TimeZoneWindow._gmt_country(summer), "Portugal")
+
+    def test_context_menu_reference_action_highlights_selected_row(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            menu = window._build_row_context_menu(window._rows[-5])
+            menu.actions()[0].trigger()
+            self.assertEqual(window.reference_offset, -5)
+            self.assertIs(window._highlighted_row, window._rows[-5])
+            self.assertTrue(window._rows[-5].property("searchHighlight"))
+            self.assertTrue(window._rows[-5]._search_glow.isEnabled())
+        finally:
+            window._timer.stop()
+            window.close()
 
     def test_country_search_centres_and_highlights_matching_offset(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
