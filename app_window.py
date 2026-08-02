@@ -230,12 +230,17 @@ QWidget#offsetSlot {
     background: #11151c;
 }
 QLabel#futureOffsetLabel, QLabel#referenceOffsetLabel, QLabel#pastOffsetLabel,
-QLabel#localZoneLabel {
+QLabel#localZoneLabel, QLabel#hemisphereLabel {
     background: transparent;
 }
 QLabel#localZoneLabel {
     color: #8f9daf;
     font-size: 9pt;
+}
+QLabel#hemisphereLabel {
+    color: #66768a;
+    font-size: 8pt;
+    font-weight: 600;
 }
 QWidget#locationsSlot, QWidget#locationPairCell {
     background: transparent;
@@ -567,6 +572,11 @@ class TimeZoneRow(QWidget):
         self.local_zone_label.setObjectName("localZoneLabel")
         self.local_zone_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        self.hemisphere_label = QLabel(self.hemisphere_text(offset))
+        self.hemisphere_label.setObjectName("hemisphereLabel")
+        self.hemisphere_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hemisphere_label.setVisible(bool(self.hemisphere_label.text()))
+
         self.offset_slot = QWidget()
         self.offset_slot.setObjectName("offsetSlot")
         self.offset_slot.setFixedWidth(155)
@@ -576,6 +586,7 @@ class TimeZoneRow(QWidget):
         offset_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         offset_layout.addWidget(self.offset_label)
         offset_layout.addWidget(self.local_zone_label)
+        offset_layout.addWidget(self.hemisphere_label)
 
         self.locations_slot = QWidget()
         self.locations_slot.setObjectName("locationsSlot")
@@ -602,6 +613,14 @@ class TimeZoneRow(QWidget):
         layout.addWidget(self.locations_slot, 1)
         layout.addWidget(self.time_label)
         self.set_reference_offset(0)
+
+    @staticmethod
+    def hemisphere_text(offset: Offset) -> str:
+        if offset < 0:
+            return "Western hemisphere"
+        if offset > 0:
+            return "Eastern hemisphere"
+        return ""
 
     def set_reference_offset(self, reference_offset: Offset) -> None:
         if self.offset == reference_offset:
@@ -718,7 +737,7 @@ class TimeZoneWindow(QMainWindow):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setMinimumSize(790, 500)
-        self.resize(1000, 720)
+        self.resize(1000, 800)
 
         surface = QWidget()
         surface.setObjectName("windowSurface")
@@ -850,7 +869,7 @@ class TimeZoneWindow(QMainWindow):
     def _create_rows(self) -> None:
         for offset in OFFSET_ORDER:
             item = QListWidgetItem()
-            item.setSizeHint(QSize(0, 78))
+            item.setSizeHint(QSize(0, 90))
             row = TimeZoneRow(offset)
             row.set_reference_offset(self.reference_offset)
             self.list_widget.addItem(item)

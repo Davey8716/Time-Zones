@@ -85,9 +85,23 @@ class UiSmokeTests(unittest.TestCase):
             for label in (
                 row.offset_label,
                 row.local_zone_label,
+                row.hemisphere_label,
                 row.time_label,
             ):
                 self.assertEqual(label.alignment(), Qt.AlignmentFlag.AlignCenter)
+            self.assertEqual(row.hemisphere_label.objectName(), "hemisphereLabel")
+            self.assertEqual(window.minimumSize().height(), 500)
+            self.assertEqual(window.height(), 800)
+            for offset, item in window._items.items():
+                self.assertEqual(item.sizeHint().height(), 90)
+                hemisphere = window._rows[offset].hemisphere_label
+                expected = (
+                    "Western hemisphere"
+                    if offset < 0
+                    else "Eastern hemisphere" if offset > 0 else ""
+                )
+                self.assertEqual(hemisphere.text(), expected)
+                self.assertEqual(hemisphere.isVisible(), bool(expected))
             for cell in row.location_cells:
                 self.assertEqual(
                     cell.country_label.alignment(), Qt.AlignmentFlag.AlignCenter
@@ -144,6 +158,21 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(window._rows[-11].local_zone_label.text(), "SST")
             self.assertEqual(window._rows[11].local_zone_label.text(), "")
             self.assertFalse(window._rows[11].local_zone_label.isVisible())
+            western_row = window._rows[-11]
+            self.assertLess(
+                western_row.local_zone_label.geometry().bottom(),
+                western_row.hemisphere_label.geometry().top(),
+            )
+            eastern_row = window._rows[11]
+            self.assertLess(
+                eastern_row.offset_label.geometry().bottom(),
+                eastern_row.hemisphere_label.geometry().top(),
+            )
+            for tagged_row in (western_row, eastern_row):
+                self.assertLessEqual(
+                    tagged_row.hemisphere_label.geometry().bottom(),
+                    tagged_row.offset_slot.rect().bottom(),
+                )
         finally:
             window._timer.stop()
             window.close()
