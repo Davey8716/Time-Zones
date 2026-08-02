@@ -329,26 +329,101 @@ def _load_country_time_zones() -> tuple[
 
 COUNTRY_TIME_ZONES, COUNTRY_ZONE_OPTIONS = _load_country_time_zones()
 
-# Reuse the same readable regional names in the country selector that appear in
-# the time-zone rows.  When a country is represented only by regional rows, its
-# ambiguous ISO-level entry is replaced by those regions.  Plain country names
-# that are themselves displayed rows (for example Brazil and New Zealand) stay.
+# Reuse readable regional names from the time-zone rows and add a small set of
+# dropdown-only regions. When a country is represented only by regional rows,
+# its ambiguous ISO-level entry is replaced by those regions. Plain country
+# names that are themselves displayed rows (for example Brazil and New Zealand)
+# stay unless explicitly replaced by a complete regional dropdown catalogue.
 _REGIONAL_COUNTRY_TIME_ZONES = {
     location.country: location.zone_id
     for location in LOCATIONS
     if " (" in location.country
 }
-_REGIONAL_COUNTRY_TIME_ZONES["Portugal (Mainland)"] = "Europe/Lisbon"
+_REGIONAL_COUNTRY_TIME_ZONES.update(
+    {
+        "Australia (New South Wales)": "Australia/Sydney",
+        "Australia (Western Australia)": "Australia/Perth",
+        "Brazil (Acre)": "America/Rio_Branco",
+        "Brazil (Amazon)": "America/Manaus",
+        "Brazil (Brasília Time)": "America/Sao_Paulo",
+        "Canada (Atlantic Standard)": "America/Blanc-Sablon",
+        "Canada (Central)": "America/Winnipeg",
+        "Canada (Eastern)": "America/Toronto",
+        "Canada (Eastern Standard)": "America/Atikokan",
+        "Canada (Saskatchewan)": "America/Regina",
+        "Canada (Yukon)": "America/Whitehorse",
+        "Chile (Easter Island)": "Pacific/Easter",
+        "Chile (Magallanes)": "America/Punta_Arenas",
+        "Chile (Mainland)": "America/Santiago",
+        "China (Beijing Time)": "Asia/Shanghai",
+        "China (Xinjiang)": "Asia/Urumqi",
+        "Congo (Dem. Rep. — Eastern)": "Africa/Lubumbashi",
+        "Congo (Dem. Rep. — Western)": "Africa/Kinshasa",
+        "Ecuador (Galápagos Islands)": "Pacific/Galapagos",
+        "Ecuador (Mainland)": "America/Guayaquil",
+        "Greenland (Danmarkshavn)": "America/Danmarkshavn",
+        "Greenland (Nuuk)": "America/Nuuk",
+        "Greenland (Pituffik)": "America/Thule",
+        "Indonesia (Central)": "Asia/Makassar",
+        "Indonesia (Eastern)": "Asia/Jayapura",
+        "Indonesia (Western)": "Asia/Jakarta",
+        "Kiribati (Phoenix Islands)": "Pacific/Kanton",
+        "Mexico (Baja California)": "America/Tijuana",
+        "Mexico (Central)": "America/Mexico_City",
+        "Mexico (Ciudad Juárez)": "America/Ciudad_Juarez",
+        "Mexico (Northern Border)": "America/Matamoros",
+        "Mexico (Quintana Roo)": "America/Cancun",
+        "Mexico (Sonora)": "America/Hermosillo",
+        "Micronesia (Chuuk)": "Pacific/Chuuk",
+        "Mongolia (Hovd)": "Asia/Hovd",
+        "Mongolia (Ulaanbaatar)": "Asia/Ulaanbaatar",
+        "Papua New Guinea (Bougainville)": "Pacific/Bougainville",
+        "Papua New Guinea (Mainland)": "Pacific/Port_Moresby",
+        "Portugal (Mainland)": "Europe/Lisbon",
+        "Russia (Kaliningrad)": "Europe/Kaliningrad",
+        "Russia (Moscow)": "Europe/Moscow",
+        "Russia (Samara)": "Europe/Samara",
+        "Russia (Yekaterinburg)": "Asia/Yekaterinburg",
+        "Russia (Omsk)": "Asia/Omsk",
+        "Russia (Krasnoyarsk)": "Asia/Krasnoyarsk",
+        "Russia (Irkutsk)": "Asia/Irkutsk",
+        "Russia (Yakutsk)": "Asia/Yakutsk",
+        "Russia (Vladivostok)": "Asia/Vladivostok",
+        "Russia (Magadan)": "Asia/Magadan",
+        "Russia (Kamchatka)": "Asia/Kamchatka",
+        "Spain (Canary Islands)": "Atlantic/Canary",
+        "Spain (Mainland)": "Europe/Madrid",
+        "United States (Aleutian Islands)": "America/Adak",
+    }
+)
 _REGIONAL_COUNTRY_BASES = {
     country.partition(" (")[0] for country in _REGIONAL_COUNTRY_TIME_ZONES
 }
 _PLAIN_DISPLAY_COUNTRIES = {
     location.country for location in LOCATIONS if " (" not in location.country
 }
+_REPLACED_PLAIN_COUNTRIES = {
+    "Brazil",
+    "Chile",
+    "China",
+    "Congo (Dem. Rep.)",
+    "Ecuador",
+    "Greenland",
+    "Indonesia",
+    "Mexico",
+    "Mongolia",
+    "Papua New Guinea",
+    "Russia",
+    "Spain",
+}
 COUNTRY_TIME_ZONES = [
     (country, zone_id)
     for country, zone_id in COUNTRY_TIME_ZONES
-    if country not in _REGIONAL_COUNTRY_BASES or country in _PLAIN_DISPLAY_COUNTRIES
+    if (
+        country not in _REGIONAL_COUNTRY_BASES
+        or country in _PLAIN_DISPLAY_COUNTRIES
+    )
+    and country not in _REPLACED_PLAIN_COUNTRIES
 ]
 COUNTRY_TIME_ZONES.extend(_REGIONAL_COUNTRY_TIME_ZONES.items())
 COUNTRY_TIME_ZONES.sort(key=lambda item: _country_sort_key(item[0]))

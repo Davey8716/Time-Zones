@@ -44,10 +44,14 @@ one left-click on the tray icon to restore and focus it. Use the tray menu's
 
 ## Reference time zone
 
-Choose a country or one of its displayed regional time zones, such as
+Choose a country or one of its regional time zones, such as
 **United States (Mountain)**, from **World countries list** to set its live
 offset as the reference. Regional names in the dropdown match the names shown
-in the time-zone rows. The reference row is blue, earlier offsets are red, and
+in the time-zone rows where available. Dropdown-only regions, including
+Russia's 11 time zones, navigate to their existing GMT rows without adding new
+location cards. Multi-zone countries also separate regions that share an
+offset during part of the year but follow different daylight-saving rules.
+The reference row is blue, earlier offsets are red, and
 later offsets are green. The choice is saved for the current Windows user in
 local app data as `timezone_config.json`, including both the exact dropdown
 location and its reference offset. You can also right-click a visible GMT row and choose

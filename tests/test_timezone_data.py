@@ -5,7 +5,9 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from timezone_data import (
     COUNTRIES,
+    COUNTRY_TIME_ZONES,
     COUNTRY_ZONE_OPTIONS,
+    LOCATIONS,
     OFFSET_ORDER,
     Location,
     format_gmt_offset,
@@ -108,7 +110,7 @@ class TimeZoneDataTests(unittest.TestCase):
             self.assertTrue(actual_offsets.issubset(populated_offsets))
 
     def test_country_catalogue_is_complete_and_alphabetical(self):
-        self.assertEqual(len(COUNTRIES), 268)
+        self.assertEqual(len(COUNTRIES), 308)
         self.assertEqual(len(COUNTRIES), len(set(COUNTRIES)))
         self.assertEqual(COUNTRIES[:3], ["Afghanistan", "Åland Islands", "Albania"])
         self.assertLess(
@@ -150,6 +152,149 @@ class TimeZoneDataTests(unittest.TestCase):
         )
         self.assertIn(("Australia", "Australia/Eucla"), COUNTRY_ZONE_OPTIONS)
         self.assertIn(("New Zealand", "Pacific/Chatham"), COUNTRY_ZONE_OPTIONS)
+
+    def test_russian_dropdown_regions_cover_all_eleven_time_zones(self):
+        expected_zones = {
+            "Russia (Kaliningrad)": "Europe/Kaliningrad",
+            "Russia (Moscow)": "Europe/Moscow",
+            "Russia (Samara)": "Europe/Samara",
+            "Russia (Yekaterinburg)": "Asia/Yekaterinburg",
+            "Russia (Omsk)": "Asia/Omsk",
+            "Russia (Krasnoyarsk)": "Asia/Krasnoyarsk",
+            "Russia (Irkutsk)": "Asia/Irkutsk",
+            "Russia (Yakutsk)": "Asia/Yakutsk",
+            "Russia (Vladivostok)": "Asia/Vladivostok",
+            "Russia (Magadan)": "Asia/Magadan",
+            "Russia (Kamchatka)": "Asia/Kamchatka",
+        }
+        russian_entries = [
+            country for country in COUNTRIES if country.startswith("Russia")
+        ]
+        self.assertEqual(russian_entries, sorted(expected_zones))
+        self.assertNotIn("Russia", COUNTRIES)
+        at_utc = datetime(2026, 8, 2, 12, tzinfo=timezone.utc)
+        actual_offsets = []
+        for country, zone_id in expected_zones.items():
+            self.assertEqual(time_zone_for_country(country), zone_id)
+            result = offset_for(Location(country, "", zone_id), at_utc)
+            self.assertIsNotNone(result)
+            actual_offsets.append(result[0])
+        self.assertEqual(sorted(actual_offsets), list(range(2, 13)))
+        self.assertEqual(
+            [location for location in LOCATIONS if location.country == "Russia"],
+            [Location("Russia", "Moscow", "Europe/Moscow", 1)],
+        )
+
+    def test_multizone_dropdown_catalogue_covers_dst_rule_groups(self):
+        expected_new_entries = {
+            "Australia (New South Wales)": "Australia/Sydney",
+            "Australia (Western Australia)": "Australia/Perth",
+            "Brazil (Acre)": "America/Rio_Branco",
+            "Brazil (Amazon)": "America/Manaus",
+            "Brazil (Brasília Time)": "America/Sao_Paulo",
+            "Canada (Atlantic Standard)": "America/Blanc-Sablon",
+            "Canada (Central)": "America/Winnipeg",
+            "Canada (Eastern)": "America/Toronto",
+            "Canada (Eastern Standard)": "America/Atikokan",
+            "Canada (Saskatchewan)": "America/Regina",
+            "Canada (Yukon)": "America/Whitehorse",
+            "Chile (Easter Island)": "Pacific/Easter",
+            "Chile (Magallanes)": "America/Punta_Arenas",
+            "Chile (Mainland)": "America/Santiago",
+            "China (Beijing Time)": "Asia/Shanghai",
+            "China (Xinjiang)": "Asia/Urumqi",
+            "Congo (Dem. Rep. — Eastern)": "Africa/Lubumbashi",
+            "Congo (Dem. Rep. — Western)": "Africa/Kinshasa",
+            "Ecuador (Galápagos Islands)": "Pacific/Galapagos",
+            "Ecuador (Mainland)": "America/Guayaquil",
+            "Greenland (Danmarkshavn)": "America/Danmarkshavn",
+            "Greenland (Nuuk)": "America/Nuuk",
+            "Greenland (Pituffik)": "America/Thule",
+            "Indonesia (Central)": "Asia/Makassar",
+            "Indonesia (Eastern)": "Asia/Jayapura",
+            "Indonesia (Western)": "Asia/Jakarta",
+            "Kiribati (Phoenix Islands)": "Pacific/Kanton",
+            "Mexico (Baja California)": "America/Tijuana",
+            "Mexico (Central)": "America/Mexico_City",
+            "Mexico (Ciudad Juárez)": "America/Ciudad_Juarez",
+            "Mexico (Northern Border)": "America/Matamoros",
+            "Mexico (Quintana Roo)": "America/Cancun",
+            "Mexico (Sonora)": "America/Hermosillo",
+            "Micronesia (Chuuk)": "Pacific/Chuuk",
+            "Mongolia (Hovd)": "Asia/Hovd",
+            "Mongolia (Ulaanbaatar)": "Asia/Ulaanbaatar",
+            "Papua New Guinea (Bougainville)": "Pacific/Bougainville",
+            "Papua New Guinea (Mainland)": "Pacific/Port_Moresby",
+            "Spain (Canary Islands)": "Atlantic/Canary",
+            "Spain (Mainland)": "Europe/Madrid",
+            "United States (Aleutian Islands)": "America/Adak",
+        }
+        for country, zone_id in expected_new_entries.items():
+            self.assertEqual(time_zone_for_country(country), zone_id)
+
+        ambiguous_names = {
+            "Brazil",
+            "Chile",
+            "China",
+            "Congo (Dem. Rep.)",
+            "Ecuador",
+            "Greenland",
+            "Indonesia",
+            "Mexico",
+            "Mongolia",
+            "Papua New Guinea",
+            "Spain",
+        }
+        self.assertTrue(ambiguous_names.isdisjoint(COUNTRIES))
+
+        countries = {
+            "Australia",
+            "Brazil",
+            "Canada",
+            "Chile",
+            "China",
+            "Congo (Dem. Rep.)",
+            "Ecuador",
+            "Greenland",
+            "Indonesia",
+            "Kiribati",
+            "Mexico",
+            "Micronesia",
+            "Mongolia",
+            "Papua New Guinea",
+            "Spain",
+            "United States",
+        }
+        dates = (
+            datetime(2026, 1, 15, 12, tzinfo=timezone.utc),
+            datetime(2026, 7, 15, 12, tzinfo=timezone.utc),
+        )
+
+        def signature(zone_id):
+            return tuple(
+                offset_for(Location("", "", zone_id), at_utc)[0]
+                for at_utc in dates
+            )
+
+        for country in countries:
+            all_signatures = {
+                signature(zone_id)
+                for candidate, zone_id in COUNTRY_ZONE_OPTIONS
+                if candidate == country
+            }
+            prefix = (
+                "Congo (Dem. Rep. — "
+                if country == "Congo (Dem. Rep.)"
+                else f"{country} ("
+            )
+            dropdown_signatures = {
+                signature(zone_id)
+                for label, zone_id in COUNTRY_TIME_ZONES
+                if label.startswith(prefix)
+            }
+            self.assertEqual(dropdown_signatures, all_signatures, country)
+
+        self.assertEqual(len(LOCATIONS), 87)
 
     def test_missing_database_is_detected(self):
         with patch(

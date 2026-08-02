@@ -519,6 +519,11 @@ class UiSmokeTests(unittest.TestCase):
                 window.title_bar.country_search.currentText(),
                 "French Polynesia (Marquesas Islands)",
             )
+            window.set_reference_offset(3, at_utc=winter)
+            self.assertEqual(
+                window.title_bar.country_search.currentText(),
+                "Russia (Moscow)",
+            )
 
             mountain_row = window._rows[-7]
             mountain_row.update_snapshot(
@@ -563,6 +568,128 @@ class UiSmokeTests(unittest.TestCase):
         finally:
             window._timer.stop()
             window.close()
+
+    def test_russian_regions_select_persist_and_restore_existing_rows(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        selections = (
+            ("Russia (Kaliningrad)", 2),
+            ("Russia (Moscow)", 3),
+            ("Russia (Vladivostok)", 10),
+            ("Russia (Kamchatka)", 12),
+        )
+        try:
+            window.show()
+            self.app.processEvents()
+            search = window.title_bar.country_search
+            for country, offset in selections:
+                country_index = search.findText(country)
+                self.assertGreaterEqual(country_index, 0)
+                search.activated.emit(country_index)
+                self.app.processEvents()
+                self.assertEqual(window.reference_offset, offset)
+                self.assertEqual(search.currentText(), country)
+                self.assertIs(window._highlighted_row, window._rows[offset])
+                reference_rect = window.list_widget.visualItemRect(
+                    window._items[offset]
+                )
+                self.assertLessEqual(
+                    abs(
+                        reference_rect.center().y()
+                        - window.list_widget.viewport().rect().center().y()
+                    ),
+                    reference_rect.height(),
+                )
+                config = TimeZoneConfig(self.config_path)
+                self.assertEqual(config.load_reference_offset(), offset)
+                self.assertEqual(config.load_reference_country(), country)
+        finally:
+            window._timer.stop()
+            window.close()
+
+        restored = TimeZoneWindow(
+            enable_tray=False, config_path=self.config_path
+        )
+        try:
+            self.assertEqual(restored.reference_offset, 12)
+            self.assertEqual(
+                restored.title_bar.country_search.currentText(),
+                "Russia (Kamchatka)",
+            )
+        finally:
+            restored._timer.stop()
+            restored.close()
+
+    def test_dropdown_only_multizone_regions_use_existing_rows(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        selections = (
+            ("Ecuador (Galápagos Islands)", -6),
+            ("Australia (Western Australia)", 8),
+            ("Indonesia (Eastern)", 9),
+            ("Papua New Guinea (Bougainville)", 11),
+        )
+        try:
+            window.show()
+            self.app.processEvents()
+            search = window.title_bar.country_search
+            for country, offset in selections:
+                country_index = search.findText(country)
+                self.assertGreaterEqual(country_index, 0)
+                search.activated.emit(country_index)
+                self.app.processEvents()
+                self.assertEqual(window.reference_offset, offset)
+                self.assertEqual(search.currentText(), country)
+                self.assertIs(window._highlighted_row, window._rows[offset])
+                reference_rect = window.list_widget.visualItemRect(
+                    window._items[offset]
+                )
+                self.assertLessEqual(
+                    abs(
+                        reference_rect.center().y()
+                        - window.list_widget.viewport().rect().center().y()
+                    ),
+                    reference_rect.height(),
+                )
+                config = TimeZoneConfig(self.config_path)
+                self.assertEqual(config.load_reference_offset(), offset)
+                self.assertEqual(config.load_reference_country(), country)
+
+            at_utc = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
+            card_mappings = (
+                (-6, Location("Mexico", "Mexico City", "America/Mexico_City"),
+                 "Mexico (Central)"),
+                (-3, Location("Brazil", "Brasília", "America/Sao_Paulo"),
+                 "Brazil (Brasília Time)"),
+                (7, Location("Indonesia", "Jakarta", "Asia/Jakarta"),
+                 "Indonesia (Western)"),
+                (8, Location("China", "Beijing", "Asia/Shanghai"),
+                 "China (Beijing Time)"),
+                (10, Location("Papua New Guinea", "Port Moresby",
+                              "Pacific/Port_Moresby"),
+                 "Papua New Guinea (Mainland)"),
+            )
+            for offset, location, expected_country in card_mappings:
+                window._rows[offset].locations = (location,)
+                window.set_reference_offset(offset, at_utc=at_utc)
+                self.assertEqual(search.currentText(), expected_country)
+        finally:
+            window._timer.stop()
+            window.close()
+
+        TimeZoneConfig(self.config_path).save_reference(
+            11, "Papua New Guinea (Bougainville)"
+        )
+        restored = TimeZoneWindow(
+            enable_tray=False, config_path=self.config_path
+        )
+        try:
+            self.assertEqual(restored.reference_offset, 11)
+            self.assertEqual(
+                restored.title_bar.country_search.currentText(),
+                "Papua New Guinea (Bougainville)",
+            )
+        finally:
+            restored._timer.stop()
+            restored.close()
 
     def test_location_order_controls_visible_country_preference(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
