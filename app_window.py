@@ -420,10 +420,6 @@ class TimeZoneRow(QWidget):
 
     @staticmethod
     def hemisphere_text(offset: Offset) -> str:
-        if offset < 0:
-            return "Western hemisphere"
-        if offset > 0:
-            return "Eastern hemisphere"
         return ""
 
     def set_reference_offset(self, reference_offset: Offset) -> None:

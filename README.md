@@ -61,10 +61,6 @@ header icon to return to GMT.
 Use the **<** and **>** buttons beside the globe header icon to show Western or
 Eastern locations first. This ordering preference is also saved per user.
 
-Signed GMT boxes include a directional `Western hemisphere` or
-`Eastern hemisphere` tag beneath the offset and local-zone abbreviation. GMT
-itself remains untagged as the boundary between the two directions.
-
 ## Tests
 
 ```powershell
