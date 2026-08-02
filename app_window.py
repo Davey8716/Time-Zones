@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
+    QListView,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
@@ -216,17 +217,15 @@ class TitleBar(QFrame):
         country_search.setCurrentIndex(-1)
         country_search.lineEdit().clear()
         country_search.setPlaceholderText("Search country")
-        popup_width = max(
-            country_search.fontMetrics().horizontalAdvance(label)
-            for label in COUNTRY_DROPDOWN_LABELS
-        ) + 52
         country_search.setFixedWidth(260)
-        country_search.view().setMinimumWidth(popup_width)
         country_search.setMaxVisibleItems(18)
-        country_search.completer().setCaseSensitivity(
+        completer = country_search.completer()
+        completer.setCaseSensitivity(
             Qt.CaseSensitivity.CaseInsensitive
         )
-        country_search.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+        completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        completer_popup = QListView(country_search)
+        completer.setPopup(completer_popup)
         country_search.setFixedHeight(30)
         country_search.setToolTip("Search for a country")
         country_search.activated[int].connect(
@@ -236,6 +235,7 @@ class TitleBar(QFrame):
             lambda: window.search_country(country_search.currentText())
         )
         self.country_search = country_search
+        self.resize_country_dropdown_to_contents()
 
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
@@ -268,6 +268,23 @@ class TitleBar(QFrame):
         layout.setColumnStretch(0, 1)
         layout.setColumnStretch(1, 0)
         layout.setColumnStretch(2, 1)
+
+    def resize_country_dropdown_to_contents(self) -> None:
+        longest_label_width = max(
+            self.country_search.fontMetrics().horizontalAdvance(label)
+            for label in COUNTRY_DROPDOWN_LABELS
+        )
+        popup_width = (
+            longest_label_width
+            + self.country_search.style().pixelMetric(
+                QStyle.PixelMetric.PM_ScrollBarExtent
+            )
+            + 36
+        )
+        self.country_search.view().setMinimumWidth(popup_width)
+        completer_popup = self.country_search.completer().popup()
+        if completer_popup is not None:
+            completer_popup.setMinimumWidth(popup_width)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -591,6 +608,7 @@ class TimeZoneWindow(QMainWindow):
         self._create_rows()
 
         self.setStyleSheet(APP_STYLE)
+        self.title_bar.resize_country_dropdown_to_contents()
         self._centre_on_screen()
 
         if enable_tray and QSystemTrayIcon.isSystemTrayAvailable():

@@ -615,7 +615,22 @@ class UiSmokeTests(unittest.TestCase):
                 [search.itemText(index) for index in range(search.count())],
                 COUNTRY_DROPDOWN_LABELS,
             )
+            longest_label_width = max(
+                search.fontMetrics().horizontalAdvance(label)
+                for label in COUNTRY_DROPDOWN_LABELS
+            )
+            required_popup_width = (
+                longest_label_width
+                + search.style().pixelMetric(QStyle.PixelMetric.PM_ScrollBarExtent)
+                + 36
+            )
             self.assertGreater(search.view().minimumWidth(), search.width())
+            self.assertGreaterEqual(
+                search.view().minimumWidth(), required_popup_width
+            )
+            self.assertGreaterEqual(
+                search.completer().popup().minimumWidth(), required_popup_width
+            )
             search.setEditText("India")
             search.lineEdit().returnPressed.emit()
             self.assertEqual(window.reference_offset, 5.5)
