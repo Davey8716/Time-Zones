@@ -17,6 +17,7 @@ from PySide6.QtGui import (
     QMouseEvent,
     QPainter,
     QPen,
+    QPolygon,
     QPixmap,
 )
 from PySide6.QtWidgets import (
@@ -283,14 +284,38 @@ def create_column_icon(kind: str, size: int = 18) -> QPixmap:
 
 
 def create_reset_icon(size: int = 18) -> QIcon:
+    """Create a globe-and-reset glyph for returning the reference to GMT."""
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setPen(QPen(QColor("#aeb9c7"), 1.7))
-    painter.drawArc(3, 3, size - 6, size - 6, 40 * 16, 280 * 16)
-    painter.drawLine(3, size // 2, 3, size - 1)
-    painter.drawLine(3, size // 2, size // 2 - 1, size // 2)
+    painter.setPen(QPen(QColor("#aeb9c7"), 1.35))
+
+    # Globe: the meridian and latitude lines make the control's time-zone
+    # context clear even at the compact title-bar size.
+    globe_left = 2
+    globe_top = 2
+    globe_size = size - 4
+    painter.drawEllipse(globe_left, globe_top, globe_size, globe_size)
+    painter.drawEllipse(size // 2 - 3, globe_top, 6, globe_size)
+    painter.drawEllipse(globe_left + 1, size // 2 - 3, globe_size - 2, 6)
+
+    # Reset arrow: a heavier open arc and triangular head distinguish the
+    # action from the globe's latitude/longitude lines.
+    painter.setPen(QPen(QColor("#aeb9c7"), 1.8))
+    painter.drawArc(1, 1, size - 2, size - 2, 55 * 16, 255 * 16)
+    arrow_tip = QPoint(2, size // 2 - 1)
+    painter.setBrush(QColor("#aeb9c7"))
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.drawPolygon(
+        QPolygon(
+            [
+                arrow_tip,
+                QPoint(6, size // 2 - 4),
+                QPoint(6, size // 2 + 2),
+            ]
+        )
+    )
     painter.end()
     return QIcon(pixmap)
 
