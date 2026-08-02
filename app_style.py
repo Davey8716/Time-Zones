@@ -26,13 +26,15 @@ QLabel#appTitle {
 }
 QLabel#appSubtitle {
     background: transparent;
-    color: #758397;
+    color: #ffffff;
     font-size: 8.5pt;
+    font-weight: 700;
 }
 QLabel#countrySearchLabel {
     background: transparent;
-    color: #758397;
+    color: #ffffff;
     font-size: 8.5pt;
+    font-weight: 700;
 }
 QLabel#columnHeader {
     background: transparent;

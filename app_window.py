@@ -214,6 +214,7 @@ class TitleBar(QFrame):
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom
         )
         country_search_label.setFixedHeight(18)
+    
 
         country_search = QComboBox()
         country_search.setObjectName("countrySearch")
