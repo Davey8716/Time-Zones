@@ -565,21 +565,24 @@ class TimeZoneRow(QWidget):
         self._search_flash.setKeyValueAt(0.45, 28.0)
         self._search_flash.setEndValue(16.0)
 
-        self.offset_label = QLabel(format_gmt_offset(offset))
+        self.offset_slot = QWidget(self)
+        self.offset_slot.setObjectName("offsetSlot")
+        self.offset_slot.setFixedWidth(155)
+
+        self.offset_label = QLabel(format_gmt_offset(offset), self.offset_slot)
         self.offset_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.local_zone_label = QLabel()
+        self.local_zone_label = QLabel(self.offset_slot)
         self.local_zone_label.setObjectName("localZoneLabel")
         self.local_zone_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.hemisphere_label = QLabel(self.hemisphere_text(offset))
+        self.hemisphere_label = QLabel(
+            self.hemisphere_text(offset), self.offset_slot
+        )
         self.hemisphere_label.setObjectName("hemisphereLabel")
         self.hemisphere_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.hemisphere_label.setVisible(bool(self.hemisphere_label.text()))
 
-        self.offset_slot = QWidget()
-        self.offset_slot.setObjectName("offsetSlot")
-        self.offset_slot.setFixedWidth(155)
         offset_layout = QVBoxLayout(self.offset_slot)
         offset_layout.setContentsMargins(4, 6, 4, 6)
         offset_layout.setSpacing(0)
@@ -588,7 +591,7 @@ class TimeZoneRow(QWidget):
         offset_layout.addWidget(self.local_zone_label)
         offset_layout.addWidget(self.hemisphere_label)
 
-        self.locations_slot = QWidget()
+        self.locations_slot = QWidget(self)
         self.locations_slot.setObjectName("locationsSlot")
         self.locations_slot.setMinimumWidth(280)
         locations_layout = QGridLayout(self.locations_slot)
@@ -598,11 +601,13 @@ class TimeZoneRow(QWidget):
         for column in range(3):
             locations_layout.setColumnStretch(column, 1)
         self._locations_layout = locations_layout
-        self.location_cells = [LocationPairCell() for _ in range(3)]
+        self.location_cells = [
+            LocationPairCell(self.locations_slot) for _ in range(3)
+        ]
         for column, cell in enumerate(self.location_cells):
             locations_layout.addWidget(cell, 0, column)
 
-        self.time_label = QLabel()
+        self.time_label = QLabel(self)
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.time_label.setFixedWidth(215)
 
@@ -1082,6 +1087,24 @@ class TimeZoneWindow(QMainWindow):
         self.activateWindow()
         if self._tray is not None:
             self._show_action.setText("Hide")
+
+    def show_after_first_layout(self) -> None:
+        """Prime layout and painting without creating a visible native window."""
+        self.ensurePolished()
+        surface = self.centralWidget()
+        if surface is not None:
+            surface.ensurePolished()
+            if surface.layout() is not None:
+                surface.layout().activate()
+        self.list_widget.doItemsLayout()
+        self._center_on_reference()
+
+        first_frame = QPixmap(self.size())
+        first_frame.fill(Qt.GlobalColor.transparent)
+        self.render(first_frame)
+
+        self._centre_on_screen()
+        self.show()
 
     def toggle_visibility(self) -> None:
         if self.isVisible() and not self.isMinimized():

@@ -59,7 +59,7 @@ def main() -> int:
     window = TimeZoneWindow()
     instance.activation_requested.connect(window.show_and_activate)
     app.aboutToQuit.connect(instance.close)
-    window.show()
+    window.show_after_first_layout()
     return app.exec()
 
 

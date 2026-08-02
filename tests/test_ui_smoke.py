@@ -53,6 +53,47 @@ class UiSmokeTests(unittest.TestCase):
     def tearDown(self):
         self.temporary_directory.cleanup()
 
+    def test_first_show_primes_paint_before_single_native_show(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        events = []
+        original_show = window.show
+        original_render = window.render
+
+        def record_show():
+            events.append("show")
+            original_show()
+
+        def record_render(*args, **kwargs):
+            events.append("render")
+            original_render(*args, **kwargs)
+
+        try:
+            with (
+                patch.object(window, "render", side_effect=record_render),
+                patch.object(window, "show", side_effect=record_show),
+            ):
+                window.show_after_first_layout()
+            self.app.processEvents()
+            self.assertEqual(events, ["render", "show"])
+            self.assertTrue(window.isVisible())
+            self.assertFalse(
+                window.testAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen)
+            )
+        finally:
+            window.close()
+
+    def test_row_widgets_have_parents_before_becoming_visible(self):
+        row = TimeZoneRow(1)
+        try:
+            self.assertIs(row.offset_label.parentWidget(), row.offset_slot)
+            self.assertIs(row.local_zone_label.parentWidget(), row.offset_slot)
+            self.assertIs(row.hemisphere_label.parentWidget(), row.offset_slot)
+            self.assertTrue(row.hemisphere_label.isVisibleTo(row))
+            for cell in row.location_cells:
+                self.assertIs(cell.parentWidget(), row.locations_slot)
+        finally:
+            row.close()
+
     def test_window_builds_all_rows_and_refreshes(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
         try:
