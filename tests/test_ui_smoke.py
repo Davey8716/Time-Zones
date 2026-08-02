@@ -219,10 +219,6 @@ class UiSmokeTests(unittest.TestCase):
                 for label in window.findChildren(QLabel, "columnHeader")
                 if label.toolTip() == "Country / capital or centre"
             )
-            self.assertNotEqual(
-                window.list_widget.contextMenuPolicy(),
-                Qt.ContextMenuPolicy.CustomContextMenu,
-            )
             self.assertEqual(western.text(), "<")
             self.assertEqual(eastern.text(), ">")
             self.assertEqual(western.toolTip(), "Show Western locations first")
@@ -251,6 +247,37 @@ class UiSmokeTests(unittest.TestCase):
                 TimeZoneConfig(self.config_path).load_location_order(),
                 LOCATION_ORDER_WESTERN,
             )
+        finally:
+            window._timer.stop()
+            window.close()
+
+    def test_row_context_menu_sets_reference_only(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            self.assertEqual(
+                window.list_widget.contextMenuPolicy(),
+                Qt.ContextMenuPolicy.CustomContextMenu,
+            )
+            menu = window._build_reference_menu(window._rows[-5])
+            self.assertEqual(len(menu.actions()), 1)
+            self.assertEqual(
+                menu.actions()[0].text(), "Set GMT-5 as my reference"
+            )
+            self.assertEqual(
+                window.reference_action_text(5.5),
+                "Set GMT+5:30 as my reference",
+            )
+            menu.actions()[0].trigger()
+            self.assertEqual(window.reference_offset, -5)
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_offset(), -5
+            )
+            self.assertIs(window._highlighted_row, window._rows[-5])
+            self.assertTrue(window._rows[-5].property("searchHighlight"))
+
+            with patch.object(window, "_build_reference_menu") as build_menu:
+                window._show_reference_menu(QPoint(-1, -1))
+                build_menu.assert_not_called()
         finally:
             window._timer.stop()
             window.close()

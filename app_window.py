@@ -710,6 +710,8 @@ class TimeZoneWindow(QMainWindow):
         self.list_widget.setVerticalScrollMode(
             QListWidget.ScrollMode.ScrollPerPixel
         )
+        self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.list_widget.customContextMenuRequested.connect(self._show_reference_menu)
         root.addWidget(self.list_widget, 1)
         self._create_rows()
         QTimer.singleShot(0, self._center_on_gmt)
@@ -827,6 +829,32 @@ class TimeZoneWindow(QMainWindow):
             self.list_widget.setItemWidget(item, row)
             self._rows[offset] = row
             self._items[offset] = item
+
+    @staticmethod
+    def reference_action_text(offset: Offset) -> str:
+        return f"Set {format_gmt_offset(offset)} as my reference"
+
+    def _row_at(self, position: QPoint) -> TimeZoneRow | None:
+        item = self.list_widget.itemAt(position)
+        if item is None:
+            return None
+        row = self.list_widget.itemWidget(item)
+        return row if isinstance(row, TimeZoneRow) else None
+
+    def _show_reference_menu(self, position: QPoint) -> None:
+        row = self._row_at(position)
+        if row is None:
+            return
+        menu = self._build_reference_menu(row)
+        menu.exec(self.list_widget.viewport().mapToGlobal(position))
+
+    def _build_reference_menu(self, row: TimeZoneRow) -> QMenu:
+        menu = QMenu(self)
+        action = menu.addAction(self.reference_action_text(row.offset))
+        action.triggered.connect(
+            lambda _checked=False, offset=row.offset: self.set_reference_offset(offset)
+        )
+        return menu
 
     def set_reference_offset(self, offset: Offset) -> None:
         if not is_valid_reference_offset(offset):

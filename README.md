@@ -43,8 +43,9 @@ the tray menu's **Exit** action to quit completely.
 Choose a country from **World countries list** to set its live offset as the
 reference. The reference row is blue, earlier offsets are red, and later
 offsets are green. The choice is saved for the current Windows user in local
-app data as `timezone_config.json`. Use the reset icon beside the GMT header
-icon to return to GMT.
+app data as `timezone_config.json`. You can also right-click a visible GMT row
+and choose **Set GMT±N as my reference**. Use the reset icon beside the GMT
+header icon to return to GMT.
 
 Use the **<** and **>** buttons beside the globe header icon to show Western or
 Eastern locations first. This ordering preference is also saved per user.
