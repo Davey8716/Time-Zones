@@ -22,6 +22,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QFrame,
     QGridLayout,
     QGraphicsDropShadowEffect,
@@ -97,6 +98,27 @@ QLabel#columnHeader {
     background: transparent;
     color: #758397;
     font-size: 8.5pt;
+}
+QPushButton#westernOrderButton, QPushButton#easternOrderButton {
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: #758397;
+    font-size: 12pt;
+    font-weight: 700;
+    min-width: 26px;
+    max-width: 26px;
+    min-height: 26px;
+    max-height: 26px;
+}
+QPushButton#westernOrderButton:hover, QPushButton#easternOrderButton:hover {
+    background: #29313d;
+    color: #dce5ef;
+}
+QPushButton#westernOrderButton:checked, QPushButton#easternOrderButton:checked {
+    background: #244d73;
+    border-color: #5caeff;
+    color: #ffffff;
 }
 QPushButton#windowButton {
     border: none;
@@ -688,8 +710,6 @@ class TimeZoneWindow(QMainWindow):
         self.list_widget.setVerticalScrollMode(
             QListWidget.ScrollMode.ScrollPerPixel
         )
-        self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.list_widget.customContextMenuRequested.connect(self._show_reference_menu)
         root.addWidget(self.list_widget, 1)
         self._create_rows()
         QTimer.singleShot(0, self._center_on_gmt)
@@ -744,19 +764,57 @@ class TimeZoneWindow(QMainWindow):
         offset_layout.addWidget(right_balance)
         layout.addWidget(offset_header)
 
-        for width, icon, tooltip in (
-            (None, "globe", "Country / capital or centre"),
-            (215, "clock", "Local date and time"),
-        ):
-            label = QLabel()
-            label.setObjectName("columnHeader")
-            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label.setToolTip(tooltip)
-            if icon is not None:
-                label.setPixmap(create_column_icon(icon))
-            if width is not None:
-                label.setFixedWidth(width)
-            layout.addWidget(label, 1 if width is None else 0)
+        country_header = QWidget()
+        country_layout = QHBoxLayout(country_header)
+        country_layout.setContentsMargins(0, 0, 0, 0)
+        country_layout.setSpacing(3)
+
+        globe_icon = QLabel()
+        globe_icon.setObjectName("columnHeader")
+        globe_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        globe_icon.setToolTip("Country / capital or centre")
+        globe_icon.setPixmap(create_column_icon("globe"))
+
+        western_order = QPushButton("<")
+        western_order.setObjectName("westernOrderButton")
+        western_order.setCheckable(True)
+        western_order.setToolTip("Show Western locations first")
+        western_order.clicked.connect(
+            lambda _checked=False: self.set_location_order(LOCATION_ORDER_WESTERN)
+        )
+
+        eastern_order = QPushButton(">")
+        eastern_order.setObjectName("easternOrderButton")
+        eastern_order.setCheckable(True)
+        eastern_order.setToolTip("Show Eastern locations first")
+        eastern_order.clicked.connect(
+            lambda _checked=False: self.set_location_order(LOCATION_ORDER_EASTERN)
+        )
+
+        location_order_group = QButtonGroup(self)
+        location_order_group.setExclusive(True)
+        location_order_group.addButton(western_order)
+        location_order_group.addButton(eastern_order)
+        western_order.setChecked(self.location_order == LOCATION_ORDER_WESTERN)
+        eastern_order.setChecked(self.location_order == LOCATION_ORDER_EASTERN)
+        self._location_order_group = location_order_group
+        self._western_order_button = western_order
+        self._eastern_order_button = eastern_order
+
+        country_layout.addStretch()
+        country_layout.addWidget(globe_icon)
+        country_layout.addWidget(western_order)
+        country_layout.addWidget(eastern_order)
+        country_layout.addStretch()
+        layout.addWidget(country_header, 1)
+
+        clock_icon = QLabel()
+        clock_icon.setObjectName("columnHeader")
+        clock_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        clock_icon.setToolTip("Local date and time")
+        clock_icon.setPixmap(create_column_icon("clock"))
+        clock_icon.setFixedWidth(215)
+        layout.addWidget(clock_icon)
         return header
 
     def _create_rows(self) -> None:
@@ -769,45 +827,6 @@ class TimeZoneWindow(QMainWindow):
             self.list_widget.setItemWidget(item, row)
             self._rows[offset] = row
             self._items[offset] = item
-
-    @staticmethod
-    def reference_action_text(offset: Offset) -> str:
-        return f"Set {format_gmt_offset(offset)} as my reference"
-
-    def _row_at(self, position: QPoint) -> TimeZoneRow | None:
-        item = self.list_widget.itemAt(position)
-        if item is None:
-            return None
-        row = self.list_widget.itemWidget(item)
-        return row if isinstance(row, TimeZoneRow) else None
-
-    def _show_reference_menu(self, position: QPoint) -> None:
-        row = self._row_at(position)
-        if row is None:
-            return
-        menu = self._build_row_context_menu(row)
-        menu.exec(self.list_widget.viewport().mapToGlobal(position))
-
-    def _build_row_context_menu(self, row: TimeZoneRow) -> QMenu:
-        menu = QMenu(self)
-        action = menu.addAction(self.reference_action_text(row.offset))
-        action.triggered.connect(
-            lambda _checked=False, offset=row.offset: self.set_reference_offset(offset)
-        )
-        menu.addSeparator()
-        eastern_action = menu.addAction("Show Eastern locations first")
-        eastern_action.setCheckable(True)
-        eastern_action.setChecked(self.location_order == LOCATION_ORDER_EASTERN)
-        eastern_action.triggered.connect(
-            lambda _checked=False: self.set_location_order(LOCATION_ORDER_EASTERN)
-        )
-        western_action = menu.addAction("Show Western locations first")
-        western_action.setCheckable(True)
-        western_action.setChecked(self.location_order == LOCATION_ORDER_WESTERN)
-        western_action.triggered.connect(
-            lambda _checked=False: self.set_location_order(LOCATION_ORDER_WESTERN)
-        )
-        return menu
 
     def set_reference_offset(self, offset: Offset) -> None:
         if not is_valid_reference_offset(offset):
@@ -822,6 +841,12 @@ class TimeZoneWindow(QMainWindow):
         if not is_valid_location_order(location_order):
             raise ValueError(f"Invalid location order: {location_order}")
         self.location_order = location_order
+        self._western_order_button.setChecked(
+            location_order == LOCATION_ORDER_WESTERN
+        )
+        self._eastern_order_button.setChecked(
+            location_order == LOCATION_ORDER_EASTERN
+        )
         self._config.save_location_order(location_order)
         self.refresh_times()
 

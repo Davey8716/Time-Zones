@@ -163,28 +163,6 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(window._rows[-5].offset_label.objectName(), "futureOffsetLabel")
             self.assertEqual(window._rows[-5].time_label.objectName(), "futureTimeLabel")
             self.assertEqual(TimeZoneConfig(self.config_path).load_reference_offset(), -6)
-            self.assertEqual(
-                window.reference_action_text(-6), "Set GMT-6 as my reference"
-            )
-            menu = window._build_row_context_menu(window._rows[-6])
-            actions = {action.text(): action for action in menu.actions() if action.text()}
-            self.assertTrue(actions["Show Western locations first"].isChecked())
-            self.assertFalse(actions["Show Eastern locations first"].isChecked())
-            window.set_location_order(LOCATION_ORDER_EASTERN)
-            self.assertEqual(window.location_order, LOCATION_ORDER_EASTERN)
-            self.assertEqual(
-                TimeZoneConfig(self.config_path).load_location_order(),
-                LOCATION_ORDER_EASTERN,
-            )
-            eastern_menu = window._build_row_context_menu(window._rows[-6])
-            eastern_actions = {
-                action.text(): action
-                for action in eastern_menu.actions()
-                if action.text()
-            }
-            self.assertTrue(eastern_actions["Show Eastern locations first"].isChecked())
-            item = window._items[-6]
-            self.assertIs(window._row_at(window.list_widget.visualItemRect(item).center()), window._rows[-6])
             window.list_widget.scrollToItem(
                 window._items[-12],
                 QListWidget.ScrollHint.PositionAtTop,
@@ -229,15 +207,50 @@ class UiSmokeTests(unittest.TestCase):
         self.assertEqual(TimeZoneWindow._gmt_country(winter), "Portugal")
         self.assertEqual(TimeZoneWindow._gmt_country(summer), "Portugal")
 
-    def test_context_menu_reference_action_highlights_selected_row(self):
+    def test_header_arrows_control_and_persist_location_order(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
         try:
-            menu = window._build_row_context_menu(window._rows[-5])
-            menu.actions()[0].trigger()
-            self.assertEqual(window.reference_offset, -5)
-            self.assertIs(window._highlighted_row, window._rows[-5])
-            self.assertTrue(window._rows[-5].property("searchHighlight"))
-            self.assertTrue(window._rows[-5]._search_glow.isEnabled())
+            window.show()
+            self.app.processEvents()
+            western = window.findChild(QPushButton, "westernOrderButton")
+            eastern = window.findChild(QPushButton, "easternOrderButton")
+            globe = next(
+                label
+                for label in window.findChildren(QLabel, "columnHeader")
+                if label.toolTip() == "Country / capital or centre"
+            )
+            self.assertNotEqual(
+                window.list_widget.contextMenuPolicy(),
+                Qt.ContextMenuPolicy.CustomContextMenu,
+            )
+            self.assertEqual(western.text(), "<")
+            self.assertEqual(eastern.text(), ">")
+            self.assertEqual(western.toolTip(), "Show Western locations first")
+            self.assertEqual(eastern.toolTip(), "Show Eastern locations first")
+            self.assertIs(globe.parentWidget(), western.parentWidget())
+            self.assertIs(globe.parentWidget(), eastern.parentWidget())
+            self.assertLess(globe.geometry().right(), western.geometry().left())
+            self.assertLess(western.geometry().right(), eastern.geometry().left())
+            self.assertTrue(western.isChecked())
+            self.assertFalse(eastern.isChecked())
+
+            eastern.click()
+            self.assertEqual(window.location_order, LOCATION_ORDER_EASTERN)
+            self.assertFalse(western.isChecked())
+            self.assertTrue(eastern.isChecked())
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_location_order(),
+                LOCATION_ORDER_EASTERN,
+            )
+
+            western.click()
+            self.assertEqual(window.location_order, LOCATION_ORDER_WESTERN)
+            self.assertTrue(western.isChecked())
+            self.assertFalse(eastern.isChecked())
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_location_order(),
+                LOCATION_ORDER_WESTERN,
+            )
         finally:
             window._timer.stop()
             window.close()

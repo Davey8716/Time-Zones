@@ -1,8 +1,8 @@
 # World Time Zones
 
-A compact, dark PySide6 desktop clock showing live whole-hour offsets from
-GMT−12 through GMT+12. Curated countries and capitals automatically move to
-their current offset when daylight-saving rules change.
+A compact, dark PySide6 desktop clock showing live global offsets from GMT−12
+through GMT+14. Countries automatically resolve to their current offset when
+daylight-saving rules change.
 
 ## Requirements
 
@@ -33,23 +33,21 @@ the tray menu's **Exit** action to quit completely.
 
 ## Display rules
 
-- Rows are ordered GMT−12 … GMT−1, GMT, then GMT+1 … GMT+12. The
-  initial view is centred on GMT.
+- Rows are ordered GMT−12 through GMT+14, including supported half-hour and
+  quarter-hour offsets. The initial view is centred on GMT.
 - Times use a 24-hour clock and include the local date and seconds.
 - Locations are regrouped using current IANA daylight-saving rules.
-- Half-hour, quarter-hour, GMT+13, and GMT+14 locations are intentionally
-  outside this app's requested scope.
 
 ## Reference time zone
 
-Right-click any row and choose **Set GMT±N as my reference**. The reference
-row is blue, earlier offsets are red, and later offsets are green. The choice
-is saved for the current Windows user in local app data as `timezone_config.json`.
-Use the reset icon at the top-left of the title bar to return to GMT.
+Choose a country from **World countries list** to set its live offset as the
+reference. The reference row is blue, earlier offsets are red, and later
+offsets are green. The choice is saved for the current Windows user in local
+app data as `timezone_config.json`. Use the reset icon beside the GMT header
+icon to return to GMT.
 
-The same right-click menu can switch between **Show Western locations first**
-and **Show Eastern locations first**. This ordering preference is also saved
-per user.
+Use the **<** and **>** buttons beside the globe header icon to show Western or
+Eastern locations first. This ordering preference is also saved per user.
 
 ## Tests
 
