@@ -109,12 +109,17 @@ LOCATIONS: tuple[Location, ...] = (
     Location("Cook Islands", "Avarua", "Pacific/Rarotonga", 2),
     Location("French Polynesia", "Papeete", "Pacific/Tahiti", 3),
     Location(
-        "French Polynesia (Marquesas)",
+        "French Polynesia (Marquesas Islands)",
         "Taiohae",
         "Pacific/Marquesas",
         1,
     ),
-    Location("Gambier Islands", "Rikitea", "Pacific/Gambier", 1),
+    Location(
+        "French Polynesia (Gambier Islands)",
+        "Rikitea",
+        "Pacific/Gambier",
+        1,
+    ),
     Location("United States (Alaska)", "Juneau", "America/Juneau", 2),
     Location("United States (Pacific)", "Los Angeles", "America/Los_Angeles", 1),
     Location("Canada (Pacific)", "Vancouver", "America/Vancouver", 2),
@@ -323,6 +328,10 @@ def _load_country_time_zones() -> tuple[
 
 
 COUNTRY_TIME_ZONES, COUNTRY_ZONE_OPTIONS = _load_country_time_zones()
+COUNTRY_TIME_ZONES.append(
+    ("French Polynesia (Marquesas Islands)", "Pacific/Marquesas")
+)
+COUNTRY_TIME_ZONES.sort(key=lambda item: _country_sort_key(item[0]))
 COUNTRIES: list[str] = [country for country, _zone_id in COUNTRY_TIME_ZONES]
 _COUNTRY_ZONE_BY_NAME = {
     country.casefold(): zone_id for country, zone_id in COUNTRY_TIME_ZONES

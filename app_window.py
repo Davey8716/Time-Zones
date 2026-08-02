@@ -889,7 +889,9 @@ class TimeZoneWindow(QMainWindow):
         }
         canonical_names = {country.casefold(): country for country in COUNTRIES}
         for location in row.locations:
-            country = country_by_zone.get(location.zone_id)
+            country = canonical_names.get(location.country.casefold())
+            if country is None:
+                country = country_by_zone.get(location.zone_id)
             if country is None:
                 base_name = re.sub(r"\s*\([^)]*\)\s*$", "", location.country)
                 country = canonical_names.get(base_name.casefold())

@@ -311,7 +311,7 @@ class UiSmokeTests(unittest.TestCase):
             self.assertTrue(row.property("searchHighlight"))
             self.assertTrue(row.graphicsEffect().isEnabled())
             self.assertEqual(search.toolTip(), "Search for a country")
-            self.assertEqual(search.count(), 249)
+            self.assertEqual(search.count(), 250)
             self.assertGreaterEqual(
                 search.view().minimumWidth(),
                 search.fontMetrics().horizontalAdvance(max(
@@ -342,6 +342,13 @@ class UiSmokeTests(unittest.TestCase):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
         try:
             winter = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
+            window.refresh_times(winter)
+            window.set_reference_offset(-9.5, at_utc=winter)
+            self.assertEqual(
+                window.title_bar.country_search.currentText(),
+                "French Polynesia (Marquesas Islands)",
+            )
+
             mountain_row = window._rows[-7]
             mountain_row.update_snapshot(
                 TimeZoneSnapshot(

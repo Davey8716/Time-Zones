@@ -54,6 +54,17 @@ class TimeZoneDataTests(unittest.TestCase):
         winter_rows = {row.offset: row for row in snapshots(winter)}
         summer_rows = {row.offset: row for row in snapshots(summer)}
 
+        self.assertEqual(
+            winter_rows[-9.5].locations[0].country,
+            "French Polynesia (Marquesas Islands)",
+        )
+        gambier = next(
+            location
+            for location in winter_rows[-9].locations
+            if location.zone_id == "Pacific/Gambier"
+        )
+        self.assertEqual(gambier.country, "French Polynesia (Gambier Islands)")
+        self.assertEqual(gambier.city, "Rikitea")
         self.assertEqual(winter_rows[5.5].locations[0].country, "India")
         self.assertEqual(winter_rows[5.75].locations[0].country, "Nepal")
         self.assertEqual(winter_rows[5.75].locations[0].city, "Kathmandu")
@@ -86,11 +97,15 @@ class TimeZoneDataTests(unittest.TestCase):
             self.assertTrue(actual_offsets.issubset(populated_offsets))
 
     def test_country_catalogue_is_complete_and_alphabetical(self):
-        self.assertEqual(len(COUNTRIES), 249)
+        self.assertEqual(len(COUNTRIES), 250)
         self.assertEqual(len(COUNTRIES), len(set(COUNTRIES)))
         self.assertEqual(COUNTRIES[:3], ["Afghanistan", "Åland Islands", "Albania"])
         self.assertEqual(time_zone_for_country("India"), "Asia/Kolkata")
         self.assertEqual(time_zone_for_country("united states"), "America/New_York")
+        self.assertEqual(
+            time_zone_for_country("French Polynesia (Marquesas Islands)"),
+            "Pacific/Marquesas",
+        )
         self.assertIn(("Australia", "Australia/Eucla"), COUNTRY_ZONE_OPTIONS)
         self.assertIn(("New Zealand", "Pacific/Chatham"), COUNTRY_ZONE_OPTIONS)
 
