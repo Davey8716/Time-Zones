@@ -86,6 +86,7 @@ class UiSmokeTests(unittest.TestCase):
             self.assertIs(row.offset_label.parentWidget(), row.offset_slot)
             self.assertIs(row.local_zone_label.parentWidget(), row.offset_slot)
             self.assertIs(row.hemisphere_label.parentWidget(), row.offset_slot)
+            self.assertIs(row.time_transition_label.parentWidget(), row.time_slot)
             self.assertFalse(row.hemisphere_label.isVisibleTo(row))
             for cell in row.location_cells:
                 self.assertIs(cell.parentWidget(), row.locations_slot)
@@ -158,6 +159,12 @@ class UiSmokeTests(unittest.TestCase):
             )
             self.assertEqual(row.period_label.objectName(), "timePeriodLabel")
             self.assertEqual(row.period_label.alignment(), Qt.AlignmentFlag.AlignCenter)
+            self.assertEqual(
+                row.time_transition_label.objectName(), "timeTransitionLabel"
+            )
+            self.assertEqual(
+                row.time_transition_label.alignment(), Qt.AlignmentFlag.AlignCenter
+            )
             for offset, item in window._items.items():
                 self.assertEqual(item.sizeHint().height(), 90)
                 hemisphere = window._rows[offset].hemisphere_label
@@ -167,8 +174,8 @@ class UiSmokeTests(unittest.TestCase):
                 if not location_cell.isHidden():
                     self.assertTrue(location_cell.country_label.text())
                     self.assertTrue(location_cell.city_label.text())
-                    self.assertTrue(location_cell.transition_label.text())
                     self.assertTrue(location_cell.region_label.text())
+                    self.assertTrue(window._rows[offset].time_transition_label.text())
             for cell in row.location_cells:
                 self.assertEqual(
                     cell.country_label.alignment(), Qt.AlignmentFlag.AlignCenter
@@ -189,11 +196,13 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(headers[1].text(), "")
             self.assertEqual(
                 headers[1].toolTip(),
-                "Country / capital / clock change / region",
+                "Country / capital / region",
             )
             self.assertFalse(headers[1].pixmap().isNull())
             self.assertEqual(headers[2].text(), "")
-            self.assertEqual(headers[2].toolTip(), "Local date and time")
+            self.assertEqual(
+                headers[2].toolTip(), "Local date, time, and clock change"
+            )
             self.assertFalse(headers[2].pixmap().isNull())
             title = window.findChild(QLabel, "appTitle")
             subtitle = window.findChild(QLabel, "appSubtitle")
@@ -436,7 +445,7 @@ class UiSmokeTests(unittest.TestCase):
                         winter_cell.city_label.text(), "Washington, D.C."
                     )
                     self.assertEqual(
-                        winter_cell.transition_label.text(),
+                        window._rows[-5].time_transition_label.text(),
                         "Moves to UTC-4 on 08 Mar",
                     )
 
@@ -463,7 +472,7 @@ class UiSmokeTests(unittest.TestCase):
                         summer_cell.country_label.text(), expected_country
                     )
                     self.assertEqual(
-                        summer_cell.transition_label.text(),
+                        window._rows[-4].time_transition_label.text(),
                         "Moves to UTC-5 on 01 Nov",
                     )
                 finally:
@@ -481,7 +490,7 @@ class UiSmokeTests(unittest.TestCase):
                 label
                 for label in window.findChildren(QLabel, "columnHeader")
                 if label.toolTip()
-                == "Country / capital / clock change / region"
+                == "Country / capital / region"
             )
             self.assertIsNone(western)
             self.assertIsNone(eastern)
@@ -947,8 +956,9 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(cell.country_label.text(), "United Kingdom")
             self.assertEqual(cell.city_label.text(), "London")
             self.assertEqual(
-                cell.transition_label.text(), "Moves to UTC+1 on 29 Mar"
+                row.time_transition_label.text(), "Moves to UTC+1 on 29 Mar"
             )
+            self.assertEqual(cell.transition_label.text(), "")
             self.assertEqual(cell.region_label.text(), "Europe")
             self.assertEqual(cell.toolTip(), "United Kingdom — London")
             self.assertAlmostEqual(

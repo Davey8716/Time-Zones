@@ -150,6 +150,11 @@ QLabel#timePeriodLabel {
     font-size: 8pt;
     font-weight: 600;
 }
+QLabel#timeTransitionLabel {
+    background: transparent;
+    color: #7f91a6;
+    font-size: 8pt;
+}
 QWidget#offsetSlot {
     background: #11151c;
 }
@@ -179,11 +184,6 @@ QLabel#locationCityLabel {
     background: transparent;
     color: #aeb9c7;
     font-size: 9pt;
-}
-QLabel#locationTransitionLabel {
-    background: transparent;
-    color: #7f91a6;
-    font-size: 8pt;
 }
 QLabel#locationRegionLabel {
     background: transparent;

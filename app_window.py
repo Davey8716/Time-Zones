@@ -317,7 +317,6 @@ class LocationPairCell(QWidget):
         layout.setSpacing(1)
         layout.addWidget(self.country_label)
         layout.addWidget(self.city_label)
-        layout.addWidget(self.transition_label)
         layout.addWidget(self.region_label)
         self.set_location(None)
 
@@ -338,7 +337,7 @@ class LocationPairCell(QWidget):
 
         self.country_label.setText(location.country)
         self.city_label.setText(location.city)
-        self.transition_label.setText(transition_text)
+        self.transition_label.clear()
         self.region_label.setText(region_text)
         self.setToolTip(location.display_name)
         self.show()
@@ -420,12 +419,18 @@ class TimeZoneRow(QWidget):
         self.period_label.setObjectName("timePeriodLabel")
         self.period_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        self.time_transition_label = QLabel(self.time_slot)
+        self.time_transition_label.setObjectName("timeTransitionLabel")
+        self.time_transition_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.time_transition_label.setWordWrap(True)
+
         time_layout = QGridLayout(self.time_slot)
         time_layout.setContentsMargins(4, 6, 4, 6)
         time_layout.setHorizontalSpacing(0)
         time_layout.setVerticalSpacing(0)
         time_layout.addWidget(self.time_label, 0, 0)
         time_layout.addWidget(self.period_label, 1, 0)
+        time_layout.addWidget(self.time_transition_label, 2, 0)
         for row, height in enumerate((22, 16, 16)):
             time_layout.setRowMinimumHeight(row, height)
 
@@ -504,6 +509,7 @@ class TimeZoneRow(QWidget):
             f"{self.relative_day_text(local_date, reference_date)} · "
             f"{'AM' if snapshot.local_datetime.hour < 12 else 'PM'}"
         )
+        self.time_transition_label.setText(transition_text)
         local_zones = self.local_zone_text(snapshot.abbreviations, snapshot.offset)
         self.local_zone_label.setText(local_zones)
         self.local_zone_label.setVisible(bool(local_zones))
@@ -644,7 +650,7 @@ class TimeZoneWindow(QMainWindow):
         globe_icon = QLabel()
         globe_icon.setObjectName("columnHeader")
         globe_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        globe_icon.setToolTip("Country / capital / clock change / region")
+        globe_icon.setToolTip("Country / capital / region")
         globe_icon.setPixmap(create_column_icon("globe"))
 
         country_layout.addStretch()
@@ -655,7 +661,7 @@ class TimeZoneWindow(QMainWindow):
         clock_icon = QLabel()
         clock_icon.setObjectName("columnHeader")
         clock_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        clock_icon.setToolTip("Local date and time")
+        clock_icon.setToolTip("Local date, time, and clock change")
         clock_icon.setPixmap(create_column_icon("clock"))
         clock_icon.setFixedWidth(215)
         layout.addWidget(clock_icon)
