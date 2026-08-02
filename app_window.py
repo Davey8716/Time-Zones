@@ -851,8 +851,8 @@ class TimeZoneWindow(QMainWindow):
         self._eastern_order_button = eastern_order
 
         country_layout.addStretch()
-        country_layout.addWidget(globe_icon, 0, Qt.AlignmentFlag.AlignVCenter)
         country_layout.addWidget(western_order, 0, Qt.AlignmentFlag.AlignVCenter)
+        country_layout.addWidget(globe_icon, 0, Qt.AlignmentFlag.AlignVCenter)
         country_layout.addWidget(eastern_order, 0, Qt.AlignmentFlag.AlignVCenter)
         country_layout.addStretch()
         layout.addWidget(country_header, 1)
