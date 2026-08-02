@@ -74,6 +74,17 @@ class TimeZoneDataTests(unittest.TestCase):
         self.assertEqual(summer_rows[9.5].locations[0].city, "Adelaide")
         self.assertEqual(winter_rows[13.75].locations[0].city, "Waitangi")
         self.assertEqual(summer_rows[12.75].locations[0].city, "Waitangi")
+        for rows, expected_offset in (
+            (winter_rows, 13.75),
+            (summer_rows, 12.75),
+        ):
+            chatham_offsets = [
+                offset
+                for offset, row in rows.items()
+                for location in row.locations
+                if location.zone_id == "Pacific/Chatham"
+            ]
+            self.assertEqual(chatham_offsets, [expected_offset])
         self.assertEqual(
             {location.country for location in summer_rows[13].locations},
             {"Samoa", "Tonga"},
@@ -97,14 +108,45 @@ class TimeZoneDataTests(unittest.TestCase):
             self.assertTrue(actual_offsets.issubset(populated_offsets))
 
     def test_country_catalogue_is_complete_and_alphabetical(self):
-        self.assertEqual(len(COUNTRIES), 250)
+        self.assertEqual(len(COUNTRIES), 268)
         self.assertEqual(len(COUNTRIES), len(set(COUNTRIES)))
         self.assertEqual(COUNTRIES[:3], ["Afghanistan", "Åland Islands", "Albania"])
+        self.assertLess(
+            COUNTRIES.index("United States (Mountain)"),
+            COUNTRIES.index("United States (Pacific)"),
+        )
         self.assertEqual(time_zone_for_country("India"), "Asia/Kolkata")
-        self.assertEqual(time_zone_for_country("united states"), "America/New_York")
+        self.assertIsNone(time_zone_for_country("united states"))
+        self.assertEqual(
+            time_zone_for_country("United States (Mountain)"),
+            "America/Denver",
+        )
+        self.assertEqual(
+            time_zone_for_country("United States (Eastern)"),
+            "America/New_York",
+        )
+        self.assertEqual(
+            time_zone_for_country("Canada (Newfoundland)"),
+            "America/St_Johns",
+        )
+        self.assertEqual(
+            time_zone_for_country("Australia (South Australia)"),
+            "Australia/Adelaide",
+        )
+        self.assertEqual(
+            time_zone_for_country("Portugal (Mainland)"),
+            "Europe/Lisbon",
+        )
+        self.assertNotIn("Portugal", COUNTRIES)
+        self.assertNotIn("United States", COUNTRIES)
+        self.assertIn("Portugal (Azores)", COUNTRIES)
         self.assertEqual(
             time_zone_for_country("French Polynesia (Marquesas Islands)"),
             "Pacific/Marquesas",
+        )
+        self.assertEqual(
+            time_zone_for_country("New Zealand (Chatham Islands)"),
+            "Pacific/Chatham",
         )
         self.assertIn(("Australia", "Australia/Eucla"), COUNTRY_ZONE_OPTIONS)
         self.assertIn(("New Zealand", "Pacific/Chatham"), COUNTRY_ZONE_OPTIONS)

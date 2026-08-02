@@ -27,7 +27,13 @@ from app_window import (
     TimeZoneRow,
     TimeZoneWindow,
 )
-from timezone_data import Location, OFFSET_ORDER, TimeZoneSnapshot, format_gmt_offset
+from timezone_data import (
+    COUNTRIES,
+    Location,
+    OFFSET_ORDER,
+    TimeZoneSnapshot,
+    format_gmt_offset,
+)
 from timezone_config import (
     LOCATION_ORDER_EASTERN,
     LOCATION_ORDER_WESTERN,
@@ -204,8 +210,8 @@ class UiSmokeTests(unittest.TestCase):
     def test_gmt_reset_country_is_always_portugal(self):
         winter = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
         summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
-        self.assertEqual(TimeZoneWindow._gmt_country(winter), "Portugal")
-        self.assertEqual(TimeZoneWindow._gmt_country(summer), "Portugal")
+        self.assertEqual(TimeZoneWindow._gmt_country(winter), "Portugal (Mainland)")
+        self.assertEqual(TimeZoneWindow._gmt_country(summer), "Portugal (Mainland)")
 
     def test_header_arrows_control_and_persist_location_order(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
@@ -311,7 +317,7 @@ class UiSmokeTests(unittest.TestCase):
             self.assertTrue(row.property("searchHighlight"))
             self.assertTrue(row.graphicsEffect().isEnabled())
             self.assertEqual(search.toolTip(), "Search for a country")
-            self.assertEqual(search.count(), 250)
+            self.assertEqual(search.count(), len(COUNTRIES))
             self.assertGreaterEqual(
                 search.view().minimumWidth(),
                 search.fontMetrics().horizontalAdvance(max(
@@ -328,11 +334,17 @@ class UiSmokeTests(unittest.TestCase):
             )
             self.assertIs(window._highlighted_row, window._rows[5.5])
             self.assertFalse(row.property("searchHighlight"))
+            mountain_index = search.findText("United States (Mountain)")
+            self.assertGreaterEqual(mountain_index, 0)
+            search.activated.emit(mountain_index)
+            self.assertEqual(search.currentText(), "United States (Mountain)")
+            mountain_offset = window.reference_offset
             window.search_country("")
             window.search_country("Not a country")
-            self.assertEqual(window.reference_offset, 5.5)
+            self.assertEqual(window.reference_offset, mountain_offset)
             self.assertEqual(
-                TimeZoneConfig(self.config_path).load_reference_offset(), 5.5
+                TimeZoneConfig(self.config_path).load_reference_offset(),
+                mountain_offset,
             )
         finally:
             window._timer.stop()
@@ -343,6 +355,11 @@ class UiSmokeTests(unittest.TestCase):
         try:
             winter = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
             window.refresh_times(winter)
+            window.set_reference_offset(13.75, at_utc=winter)
+            self.assertEqual(
+                window.title_bar.country_search.currentText(),
+                "New Zealand (Chatham Islands)",
+            )
             window.set_reference_offset(-9.5, at_utc=winter)
             self.assertEqual(
                 window.title_bar.country_search.currentText(),
@@ -366,25 +383,28 @@ class UiSmokeTests(unittest.TestCase):
             )
             window.set_reference_offset(-7, at_utc=winter)
             self.assertEqual(
-                window.title_bar.country_search.currentText(), "United States"
+                window.title_bar.country_search.currentText(),
+                "United States (Mountain)",
             )
 
             window._rows[8.75].locations = ()
             window.set_reference_offset(8.75, at_utc=winter)
             self.assertEqual(
-                window.title_bar.country_search.currentText(), "Australia"
+                window.title_bar.country_search.currentText(), "Australia (Eucla)"
             )
 
             summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
             window._rows[-3.5].locations = ()
             window.set_reference_offset(-3.5, at_utc=summer)
             self.assertEqual(
-                window.title_bar.country_search.currentText(), "Canada"
+                window.title_bar.country_search.currentText(),
+                "Canada (Newfoundland)",
             )
             window._rows[13.75].locations = ()
             window.set_reference_offset(13.75, at_utc=summer)
             self.assertEqual(
-                window.title_bar.country_search.currentText(), "New Zealand"
+                window.title_bar.country_search.currentText(),
+                "New Zealand (Chatham Islands)",
             )
         finally:
             window._timer.stop()
@@ -396,7 +416,9 @@ class UiSmokeTests(unittest.TestCase):
             summer = datetime(2026, 7, 26, 12, tzinfo=timezone.utc)
             window.set_location_order(LOCATION_ORDER_WESTERN)
             window.refresh_times(summer)
-            self.assertEqual(window._country_for_offset(-8, summer), "United States")
+            self.assertEqual(
+                window._country_for_offset(-8, summer), "United States (Alaska)"
+            )
 
             window.set_location_order(LOCATION_ORDER_EASTERN)
             window.refresh_times(summer)
@@ -410,6 +432,22 @@ class UiSmokeTests(unittest.TestCase):
         self.assertEqual(TimeZoneRow.local_zone_text(("GMT", "+00"), 0), "")
         self.assertEqual(TimeZoneRow.local_zone_text(("PKT", "+05"), 5), "PKT")
         self.assertEqual(TimeZoneRow.local_zone_text(("SST", "-11"), -11), "SST")
+
+    def test_inactive_chatham_dst_row_explains_switchover(self):
+        row = TimeZoneRow(13.75)
+        row.update_snapshot(
+            TimeZoneSnapshot(
+                offset=13.75,
+                local_datetime=datetime(2026, 8, 3, tzinfo=timezone.utc),
+                locations=(),
+                abbreviations=(),
+            )
+        )
+        self.assertEqual(
+            row.location_cells[0].country_label.text(),
+            "No major country or capital represented "
+            "(this will change during the DST switchover)",
+        )
 
     def test_location_pairs_use_equal_columns_and_preserve_pair_data(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)

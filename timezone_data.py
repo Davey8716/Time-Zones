@@ -328,9 +328,29 @@ def _load_country_time_zones() -> tuple[
 
 
 COUNTRY_TIME_ZONES, COUNTRY_ZONE_OPTIONS = _load_country_time_zones()
-COUNTRY_TIME_ZONES.append(
-    ("French Polynesia (Marquesas Islands)", "Pacific/Marquesas")
-)
+
+# Reuse the same readable regional names in the country selector that appear in
+# the time-zone rows.  When a country is represented only by regional rows, its
+# ambiguous ISO-level entry is replaced by those regions.  Plain country names
+# that are themselves displayed rows (for example Brazil and New Zealand) stay.
+_REGIONAL_COUNTRY_TIME_ZONES = {
+    location.country: location.zone_id
+    for location in LOCATIONS
+    if " (" in location.country
+}
+_REGIONAL_COUNTRY_TIME_ZONES["Portugal (Mainland)"] = "Europe/Lisbon"
+_REGIONAL_COUNTRY_BASES = {
+    country.partition(" (")[0] for country in _REGIONAL_COUNTRY_TIME_ZONES
+}
+_PLAIN_DISPLAY_COUNTRIES = {
+    location.country for location in LOCATIONS if " (" not in location.country
+}
+COUNTRY_TIME_ZONES = [
+    (country, zone_id)
+    for country, zone_id in COUNTRY_TIME_ZONES
+    if country not in _REGIONAL_COUNTRY_BASES or country in _PLAIN_DISPLAY_COUNTRIES
+]
+COUNTRY_TIME_ZONES.extend(_REGIONAL_COUNTRY_TIME_ZONES.items())
 COUNTRY_TIME_ZONES.sort(key=lambda item: _country_sort_key(item[0]))
 COUNTRIES: list[str] = [country for country, _zone_id in COUNTRY_TIME_ZONES]
 _COUNTRY_ZONE_BY_NAME = {

@@ -49,6 +49,7 @@ from timezone_config import (
 )
 from timezone_data import (
     COUNTRIES,
+    COUNTRY_TIME_ZONES,
     COUNTRY_ZONE_OPTIONS,
     OFFSET_ORDER,
     Location,
@@ -642,8 +643,11 @@ class TimeZoneRow(QWidget):
             for cell in self.location_cells[len(snapshot.locations) :]:
                 cell.set_location(None)
         else:
+            fallback_message = "No major country or capital represented"
+            if snapshot.offset == 13.75:
+                fallback_message += " (this will change during the DST switchover)"
             self.location_cells[0].set_fallback(
-                "No major country or capital represented"
+                fallback_message
             )
             for cell in self.location_cells[1:]:
                 cell.set_location(None)
@@ -884,20 +888,26 @@ class TimeZoneWindow(QMainWindow):
     def _country_for_offset(self, offset: Offset, at_utc: datetime) -> str:
         """Prefer a displayed country, then any alphabetical country-zone match."""
         row = self._rows[offset]
-        country_by_zone = {
+        dropdown_country_by_zone = {
+            zone_id: country for country, zone_id in COUNTRY_TIME_ZONES
+        }
+        canonical_country_by_zone = {
             zone_id: country for country, zone_id in COUNTRY_ZONE_OPTIONS
         }
         canonical_names = {country.casefold(): country for country in COUNTRIES}
         for location in row.locations:
             country = canonical_names.get(location.country.casefold())
             if country is None:
-                country = country_by_zone.get(location.zone_id)
+                country = dropdown_country_by_zone.get(location.zone_id)
+            if country is None:
+                canonical_country = canonical_country_by_zone.get(location.zone_id)
+                country = canonical_names.get((canonical_country or "").casefold())
             if country is None:
                 base_name = re.sub(r"\s*\([^)]*\)\s*$", "", location.country)
                 country = canonical_names.get(base_name.casefold())
             if country is not None:
                 return country
-        for country, zone_id in COUNTRY_ZONE_OPTIONS:
+        for country, zone_id in COUNTRY_TIME_ZONES:
             result = offset_for(Location(country, "", zone_id), at_utc)
             if result is not None and result[0] == offset:
                 return country
@@ -905,7 +915,7 @@ class TimeZoneWindow(QMainWindow):
             at_utc - timedelta(days=182),
             at_utc + timedelta(days=182),
         ):
-            for country, zone_id in COUNTRY_ZONE_OPTIONS:
+            for country, zone_id in COUNTRY_TIME_ZONES:
                 result = offset_for(Location(country, "", zone_id), seasonal_date)
                 if result is not None and result[0] == offset:
                     return country
@@ -933,7 +943,7 @@ class TimeZoneWindow(QMainWindow):
     @staticmethod
     def _gmt_country(_at_utc: datetime) -> str:
         """Return the country displayed when resetting the reference to GMT."""
-        return "Portugal"
+        return "Portugal (Mainland)"
 
     def search_country(self, country: str) -> None:
         """Centre and highlight the current offset row for a selected country."""
