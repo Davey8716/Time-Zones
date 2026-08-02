@@ -109,7 +109,7 @@ def create_column_icon(kind: str, size: int = 18) -> QPixmap:
 
 
 def create_reset_icon(size: int = 18) -> QIcon:
-    """Create a globe-and-reset glyph for returning the reference to GMT."""
+    """Create a globe-and-reset glyph for returning the reference to UTC."""
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
@@ -173,7 +173,7 @@ class TitleBar(QFrame):
         title = QLabel("WORLD TIME ZONES")
         title.setObjectName("appTitle")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle = QLabel("Live GMT offsets · daylight-saving aware")
+        subtitle = QLabel("Live UTC offsets · daylight-saving aware")
         subtitle.setObjectName("appSubtitle")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_stack = QVBoxLayout()
@@ -516,7 +516,7 @@ class TimeZoneRow(QWidget):
 
     @staticmethod
     def local_zone_text(abbreviations: tuple[str, ...], offset: Offset) -> str:
-        """Keep named local zones, omitting labels that only repeat the GMT offset."""
+        """Keep named local zones, omitting labels that only repeat the UTC offset."""
         numeric_offset = re.compile(r"(?:GMT|UTC)?[+-]\d{1,2}(?::?\d{2})?$")
         meaningful = [
             abbreviation
@@ -614,7 +614,7 @@ class TimeZoneWindow(QMainWindow):
         reset.setObjectName("resetButton")
         reset.setIcon(create_reset_icon())
         reset.setIconSize(QSize(18, 18))
-        reset.setToolTip("Reset reference to GMT")
+        reset.setToolTip("Reset reference to UTC")
         reset.clicked.connect(self.reset_reference)
 
         offset_icon = QLabel()

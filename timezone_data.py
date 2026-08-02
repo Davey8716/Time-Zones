@@ -466,13 +466,13 @@ def regional_display_rank(location: Location, location_order: str) -> int:
 
 def format_gmt_offset(offset: Offset) -> str:
     if offset == 0:
-        return "GMT"
+        return "UTC"
     total_minutes = round(offset * 60)
     sign = "+" if total_minutes > 0 else "-"
     hours, minutes = divmod(abs(total_minutes), 60)
     if minutes == 0:
-        return f"GMT{sign}{hours}"
-    return f"GMT{sign}{hours}:{minutes:02d}"
+        return f"UTC{sign}{hours}"
+    return f"UTC{sign}{hours}:{minutes:02d}"
 
 
 def offset_for(location: Location, at_utc: datetime) -> tuple[Offset, str] | None:

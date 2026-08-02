@@ -1,7 +1,7 @@
 # World Time Zones
 
-A compact, dark PySide6 desktop clock showing live global offsets from GMT−12
-through GMT+14. Countries automatically resolve to their current offset when
+A compact, dark PySide6 desktop clock showing live global offsets from UTC−12
+through UTC+14. Countries automatically resolve to their current offset when
 daylight-saving rules change.
 
 ## Requirements
@@ -34,8 +34,8 @@ one left-click on the tray icon to restore and focus it. Use the tray menu's
 
 ## Display rules
 
-- Rows are ordered GMT−12 through GMT+14, including supported half-hour and
-  quarter-hour offsets. The initial view is centred on GMT.
+- Rows are ordered UTC−12 through UTC+14, including supported half-hour and
+  quarter-hour offsets. The initial view is centred on UTC.
 - Times use a 24-hour clock and include the local date and seconds.
 - Locations are regrouped using current IANA daylight-saving rules.
 - Fractional rows include real capitals such as Kathmandu and New Delhi. For
@@ -48,15 +48,15 @@ Choose a country or one of its regional time zones, such as
 **United States (Mountain)**, from **World countries list** to set its live
 offset as the reference. Regional names in the dropdown match the names shown
 in the time-zone rows where available. Dropdown-only regions, including
-Russia's 11 time zones, navigate to their existing GMT rows without adding new
+Russia's 11 time zones, navigate to their existing UTC rows without adding new
 location cards. Multi-zone countries also separate regions that share an
 offset during part of the year but follow different daylight-saving rules.
 The reference row is blue, earlier offsets are red, and
 later offsets are green. The choice is saved for the current Windows user in
 local app data as `timezone_config.json`, including both the exact dropdown
-location and its reference offset. You can also right-click a visible GMT row and choose
-**Set GMT±N as my reference**. Use the reset icon beside the GMT
-header icon to return to GMT.
+location and its reference offset. You can also right-click a visible UTC row and choose
+**Set UTC±N as my reference**. Use the reset icon beside the UTC
+header icon to return to UTC.
 
 Use the **<** and **>** buttons beside the globe header icon to show Western or
 Eastern locations first. This ordering preference is also saved per user.

@@ -192,7 +192,7 @@ class UiSmokeTests(unittest.TestCase):
                 1,
             )
             reset_button = window.findChild(QPushButton, "resetButton")
-            self.assertEqual(reset_button.toolTip(), "Reset reference to GMT")
+            self.assertEqual(reset_button.toolTip(), "Reset reference to UTC")
             self.assertIs(reset_button.parentWidget(), headers[0].parentWidget())
             self.assertLess(
                 reset_button.geometry().right(), headers[0].geometry().left()
@@ -461,11 +461,11 @@ class UiSmokeTests(unittest.TestCase):
             menu = window._build_reference_menu(window._rows[-5])
             self.assertEqual(len(menu.actions()), 1)
             self.assertEqual(
-                menu.actions()[0].text(), "Set GMT-5 as my reference"
+                menu.actions()[0].text(), "Set UTC-5 as my reference"
             )
             self.assertEqual(
                 window.reference_action_text(5.5),
-                "Set GMT+5:30 as my reference",
+                "Set UTC+5:30 as my reference",
             )
             expected_country = window._country_for_offset(
                 -5, datetime.now(timezone.utc)

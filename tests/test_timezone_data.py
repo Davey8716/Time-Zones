@@ -28,13 +28,13 @@ class TimeZoneDataTests(unittest.TestCase):
         self.assertIn(12.75, OFFSET_ORDER)
 
     def test_gmt_offset_formatting(self):
-        self.assertEqual(format_gmt_offset(0), "GMT")
-        self.assertEqual(format_gmt_offset(7), "GMT+7")
-        self.assertEqual(format_gmt_offset(-12), "GMT-12")
-        self.assertEqual(format_gmt_offset(-2.5), "GMT-2:30")
-        self.assertEqual(format_gmt_offset(5.5), "GMT+5:30")
-        self.assertEqual(format_gmt_offset(5.75), "GMT+5:45")
-        self.assertEqual(format_gmt_offset(12.75), "GMT+12:45")
+        self.assertEqual(format_gmt_offset(0), "UTC")
+        self.assertEqual(format_gmt_offset(7), "UTC+7")
+        self.assertEqual(format_gmt_offset(-12), "UTC-12")
+        self.assertEqual(format_gmt_offset(-2.5), "UTC-2:30")
+        self.assertEqual(format_gmt_offset(5.5), "UTC+5:30")
+        self.assertEqual(format_gmt_offset(5.75), "UTC+5:45")
+        self.assertEqual(format_gmt_offset(12.75), "UTC+12:45")
 
     def test_london_moves_rows_for_daylight_saving(self):
         london = Location("United Kingdom", "London", "Europe/London")
