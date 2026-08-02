@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
-    QListView,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
@@ -210,29 +209,18 @@ class TitleBar(QFrame):
 
         country_search = QComboBox()
         country_search.setObjectName("countrySearch")
-        country_search.setEditable(True)
+        country_search.setEditable(False)
         for country, label in zip(COUNTRIES, COUNTRY_DROPDOWN_LABELS):
             country_search.addItem(label, country)
         country_search.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         country_search.setCurrentIndex(-1)
-        country_search.lineEdit().clear()
         country_search.setPlaceholderText("Search country")
         country_search.setFixedWidth(260)
         country_search.setMaxVisibleItems(18)
-        completer = country_search.completer()
-        completer.setCaseSensitivity(
-            Qt.CaseSensitivity.CaseInsensitive
-        )
-        completer.setFilterMode(Qt.MatchFlag.MatchContains)
-        completer_popup = QListView(country_search)
-        completer.setPopup(completer_popup)
         country_search.setFixedHeight(30)
-        country_search.setToolTip("Search for a country")
+        country_search.setToolTip("Select a country")
         country_search.activated[int].connect(
             lambda index: window.search_country(country_search.itemData(index))
-        )
-        country_search.lineEdit().returnPressed.connect(
-            lambda: window.search_country(country_search.currentText())
         )
         self.country_search = country_search
         self.resize_country_dropdown_to_contents()
@@ -279,12 +267,9 @@ class TitleBar(QFrame):
             + self.country_search.style().pixelMetric(
                 QStyle.PixelMetric.PM_ScrollBarExtent
             )
-            + 36
+            + 120
         )
         self.country_search.view().setMinimumWidth(popup_width)
-        completer_popup = self.country_search.completer().popup()
-        if completer_popup is not None:
-            completer_popup.setMinimumWidth(popup_width)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -791,7 +776,6 @@ class TimeZoneWindow(QMainWindow):
         for row in self._rows.values():
             row.set_reference_offset(offset)
         self.title_bar.country_search.setCurrentIndex(-1)
-        self.title_bar.country_search.lineEdit().clear()
         self._config.save_reference_offset(offset)
         self._highlight_offset(offset, flash=flash)
 

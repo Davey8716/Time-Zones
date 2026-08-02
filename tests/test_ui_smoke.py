@@ -611,7 +611,9 @@ class UiSmokeTests(unittest.TestCase):
                 ),
                 reference_rect.height(),
             )
-            self.assertEqual(search.toolTip(), "Search for a country")
+            self.assertFalse(search.isEditable())
+            self.assertIsNone(search.lineEdit())
+            self.assertEqual(search.toolTip(), "Select a country")
             self.assertEqual(search.count(), len(COUNTRIES))
             self.assertEqual(
                 [search.itemText(index) for index in range(search.count())],
@@ -630,11 +632,9 @@ class UiSmokeTests(unittest.TestCase):
             self.assertGreaterEqual(
                 search.view().minimumWidth(), required_popup_width
             )
-            self.assertGreaterEqual(
-                search.completer().popup().minimumWidth(), required_popup_width
-            )
-            search.setEditText("India")
-            search.lineEdit().returnPressed.emit()
+            india_index = search.findData("India")
+            self.assertGreaterEqual(india_index, 0)
+            search.activated.emit(india_index)
             self.assertEqual(window.reference_offset, 5.5)
             self.assertEqual(search.currentText(), "India — New Delhi — Asia")
             self.assertEqual(

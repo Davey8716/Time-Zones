@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox
+
 from app_window import TimeZoneWindow
 from single_instance import SingleInstance
 from timezone_data import (
@@ -58,7 +59,7 @@ def main() -> int:
     window = TimeZoneWindow()
     instance.activation_requested.connect(window.show_and_activate)
     app.aboutToQuit.connect(instance.close)
-    window.show_after_first_layout()
+    window.show()
     return app.exec()
 
 
