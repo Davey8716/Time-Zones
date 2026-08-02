@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -782,14 +782,14 @@ class UiSmokeTests(unittest.TestCase):
         self.assertEqual(TimeZoneRow.local_zone_text(("PKT", "+05"), 5), "PKT")
         self.assertEqual(TimeZoneRow.local_zone_text(("SST", "-11"), -11), "SST")
 
-    def test_time_period_uses_local_hour_and_keeps_24_hour_time(self):
+    def test_time_period_uses_local_hour_day_and_keeps_24_hour_time(self):
         row = TimeZoneRow(0)
         try:
             expectations = (
-                (datetime(2026, 8, 2, 0, 6, 55, tzinfo=timezone.utc), "00:06:55", "AM"),
-                (datetime(2026, 8, 2, 11, 59, 59, tzinfo=timezone.utc), "11:59:59", "AM"),
-                (datetime(2026, 8, 2, 12, 0, 0, tzinfo=timezone.utc), "12:00:00", "PM"),
-                (datetime(2026, 8, 2, 18, 6, 55, tzinfo=timezone.utc), "18:06:55", "PM"),
+                (datetime(2026, 8, 2, 0, 6, 55, tzinfo=timezone.utc), "00:06:55", "Today · AM"),
+                (datetime(2026, 8, 2, 11, 59, 59, tzinfo=timezone.utc), "11:59:59", "Today · AM"),
+                (datetime(2026, 8, 2, 12, 0, 0, tzinfo=timezone.utc), "12:00:00", "Today · PM"),
+                (datetime(2026, 8, 2, 18, 6, 55, tzinfo=timezone.utc), "18:06:55", "Today · PM"),
             )
             for local_datetime, displayed_time, period in expectations:
                 row.update_snapshot(
@@ -804,6 +804,42 @@ class UiSmokeTests(unittest.TestCase):
                 self.assertEqual(row.period_label.text(), period)
         finally:
             row.close()
+
+    def test_time_period_labels_relative_day_from_reference_date(self):
+        row = TimeZoneRow(0)
+        reference_date = date(2026, 8, 2)
+        expectations = (
+            (datetime(2026, 8, 1, 23, 30, tzinfo=timezone.utc), "Yesterday · PM"),
+            (datetime(2026, 8, 2, 0, 30, tzinfo=timezone.utc), "Today · AM"),
+            (datetime(2026, 8, 3, 0, 30, tzinfo=timezone.utc), "Tomorrow · AM"),
+        )
+        try:
+            for local_datetime, period in expectations:
+                row.update_snapshot(
+                    TimeZoneSnapshot(
+                        offset=0,
+                        local_datetime=local_datetime,
+                        locations=(),
+                        abbreviations=("GMT",),
+                    ),
+                    reference_date,
+                )
+                self.assertEqual(row.period_label.text(), period)
+        finally:
+            row.close()
+
+    def test_day_period_labels_follow_selected_reference_row(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        at_utc = datetime(2026, 8, 2, 0, 30, tzinfo=timezone.utc)
+        try:
+            window.set_reference_offset(-1, at_utc=at_utc)
+            window.refresh_times(at_utc)
+            self.assertEqual(window._rows[-1].period_label.text(), "Today · PM")
+            self.assertEqual(window._rows[0].period_label.text(), "Tomorrow · AM")
+            self.assertEqual(window._rows[-2].period_label.text(), "Today · PM")
+        finally:
+            window._timer.stop()
+            window.close()
 
     def test_inactive_chatham_dst_row_explains_switchover(self):
         row = TimeZoneRow(13.75)

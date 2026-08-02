@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import os
 from pathlib import Path
 import re
@@ -457,7 +457,11 @@ class TimeZoneRow(QWidget):
         style.polish(label)
         label.update()
 
-    def update_snapshot(self, snapshot: TimeZoneSnapshot) -> None:
+    def update_snapshot(
+        self,
+        snapshot: TimeZoneSnapshot,
+        reference_date: date | None = None,
+    ) -> None:
         self.locations = snapshot.locations
         if snapshot.locations:
             columns_by_count = {
@@ -491,12 +495,24 @@ class TimeZoneRow(QWidget):
         self.time_label.setText(
             snapshot.local_datetime.strftime("%a, %d %b %Y  ·  %H:%M:%S")
         )
+        local_date = snapshot.local_datetime.date()
+        reference_date = reference_date or local_date
         self.period_label.setText(
-            "AM" if snapshot.local_datetime.hour < 12 else "PM"
+            f"{self.relative_day_text(local_date, reference_date)} · "
+            f"{'AM' if snapshot.local_datetime.hour < 12 else 'PM'}"
         )
         local_zones = self.local_zone_text(snapshot.abbreviations, snapshot.offset)
         self.local_zone_label.setText(local_zones)
         self.local_zone_label.setVisible(bool(local_zones))
+
+    @staticmethod
+    def relative_day_text(local_date: date, reference_date: date) -> str:
+        delta_days = (local_date - reference_date).days
+        if delta_days == -1:
+            return "Yesterday"
+        if delta_days == 1:
+            return "Tomorrow"
+        return "Today"
 
     @staticmethod
     def local_zone_text(abbreviations: tuple[str, ...], offset: Offset) -> str:
@@ -862,8 +878,15 @@ class TimeZoneWindow(QMainWindow):
 
     def refresh_times(self, at_utc: datetime | None = None) -> None:
         current = at_utc or datetime.now(timezone.utc)
-        for snapshot in snapshots(current, location_order=self.location_order):
-            self._rows[snapshot.offset].update_snapshot(snapshot)
+        current_snapshots = snapshots(current, location_order=self.location_order)
+        reference_snapshot = next(
+            snapshot
+            for snapshot in current_snapshots
+            if snapshot.offset == self.reference_offset
+        )
+        reference_date = reference_snapshot.local_datetime.date()
+        for snapshot in current_snapshots:
+            self._rows[snapshot.offset].update_snapshot(snapshot, reference_date)
 
     def _centre_on_screen(self) -> None:
         screen = self.screen() or QApplication.primaryScreen()
