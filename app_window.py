@@ -763,7 +763,12 @@ class TimeZoneWindow(QMainWindow):
         self._apply_active_reference(offset, country)
         self._config.save_reference(offset, country)
 
-    def _apply_active_reference(self, offset: Offset, country: str) -> None:
+    def _apply_active_reference(
+        self,
+        offset: Offset,
+        country: str,
+        flash: bool = False,
+    ) -> None:
         self.reference_offset = offset
         self.reference_country = country
         for row in self._rows.values():
@@ -771,7 +776,7 @@ class TimeZoneWindow(QMainWindow):
         country_index = self.title_bar.country_search.findData(country)
         if country_index >= 0:
             self.title_bar.country_search.setCurrentIndex(country_index)
-        self._highlight_offset(offset)
+        self._highlight_offset(offset, flash=flash)
 
     def _set_fixed_reference_offset(
         self,
@@ -839,7 +844,13 @@ class TimeZoneWindow(QMainWindow):
 
     def reset_reference(self) -> None:
         current = datetime.now(timezone.utc)
-        self._set_fixed_reference_offset(0, flash=True)
+        selected_country = self._country_for_offset(0, current)
+        country_index = self.title_bar.country_search.findData(selected_country)
+        if country_index >= 0:
+            self._apply_active_reference(0, selected_country, flash=True)
+            self._config.save_reference(0, selected_country)
+        else:
+            self._set_fixed_reference_offset(0, flash=True)
         self.refresh_times(current)
 
     def search_country(self, country: str | None) -> None:

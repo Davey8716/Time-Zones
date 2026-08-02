@@ -275,11 +275,13 @@ class UiSmokeTests(unittest.TestCase):
             window.findChild(QPushButton, "resetButton").click()
             self.assertEqual(window.reference_offset, 0)
             self.assertEqual(TimeZoneConfig(self.config_path).load_reference_offset(), 0)
-            self.assertIsNone(
-                TimeZoneConfig(self.config_path).load_reference_country()
-            )
             search = window.findChild(QComboBox, "countrySearch")
-            self.assertEqual(search.currentText(), "")
+            self.assertEqual(window.reference_country, "Ghana")
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_country(), "Ghana"
+            )
+            self.assertEqual(search.currentData(), "Ghana")
+            self.assertEqual(search.currentText(), "Ghana — Accra — Africa")
             gmt_row = window._rows[0]
             self.assertIs(window._highlighted_row, gmt_row)
             self.assertTrue(gmt_row.property("searchHighlight"))
