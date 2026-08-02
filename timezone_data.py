@@ -4,11 +4,54 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from importlib.resources import files
 from typing import Iterable
+import unicodedata
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
-OFFSET_ORDER: tuple[int, ...] = tuple(range(-12, 13))
+Offset = int | float
+OFFSET_ORDER: tuple[Offset, ...] = (
+    -12,
+    -11,
+    -10,
+    -9.5,
+    -9,
+    -8,
+    -7,
+    -6,
+    -5,
+    -4,
+    -3.5,
+    -3,
+    -2,
+    -1,
+    0,
+    1,
+    2,
+    3,
+    3.5,
+    4,
+    4.5,
+    5,
+    5.5,
+    5.75,
+    6,
+    6.5,
+    7,
+    8,
+    8.75,
+    9,
+    9.5,
+    10,
+    10.5,
+    11,
+    12,
+    12.75,
+    13,
+    13.75,
+    14,
+)
 REQUIRED_TZDATA_VERSION = "2025.2"
 LOCATION_ORDER_WESTERN = "western"
 LOCATION_ORDER_EASTERN = "eastern"
@@ -48,7 +91,7 @@ class Location:
 
 @dataclass(frozen=True, slots=True)
 class TimeZoneSnapshot:
-    offset: int
+    offset: Offset
     local_datetime: datetime
     locations: tuple[Location, ...]
     abbreviations: tuple[str, ...]
@@ -131,6 +174,86 @@ LOCATIONS: tuple[Location, ...] = (
     Location("New Zealand", "Wellington", "Pacific/Auckland", 3),
 )
 
+_COUNTRY_ZONE_OVERRIDES = {
+    "AQ": "Antarctica/McMurdo",
+    "AR": "America/Argentina/Buenos_Aires",
+    "AU": "Australia/Sydney",
+    "BR": "America/Sao_Paulo",
+    "CA": "America/Toronto",
+    "CD": "Africa/Kinshasa",
+    "CL": "America/Santiago",
+    "CN": "Asia/Shanghai",
+    "CY": "Asia/Nicosia",
+    "DE": "Europe/Berlin",
+    "EC": "America/Guayaquil",
+    "ES": "Europe/Madrid",
+    "FM": "Pacific/Pohnpei",
+    "GL": "America/Nuuk",
+    "ID": "Asia/Jakarta",
+    "KI": "Pacific/Tarawa",
+    "KZ": "Asia/Almaty",
+    "MH": "Pacific/Majuro",
+    "MN": "Asia/Ulaanbaatar",
+    "MX": "America/Mexico_City",
+    "MY": "Asia/Kuala_Lumpur",
+    "NZ": "Pacific/Auckland",
+    "PF": "Pacific/Tahiti",
+    "PG": "Pacific/Port_Moresby",
+    "PS": "Asia/Hebron",
+    "PT": "Europe/Lisbon",
+    "RU": "Europe/Moscow",
+    "UA": "Europe/Kyiv",
+    "UM": "Pacific/Wake",
+    "US": "America/New_York",
+    "UZ": "Asia/Tashkent",
+    "BV": "Europe/Oslo",
+    "HM": "Indian/Kerguelen",
+}
+
+
+def _load_country_time_zones() -> list[tuple[str, str]]:
+    """Load the complete ISO country list with one representative IANA zone."""
+    database = files("tzdata.zoneinfo")
+    country_names = {
+        code: name
+        for code, name in (
+            line.split("\t", 1)
+            for line in (database / "iso3166.tab").read_text(
+                encoding="utf-8"
+            ).splitlines()
+            if line and not line.startswith("#")
+        )
+    }
+    country_zones: dict[str, str] = {}
+    for line in (database / "zone.tab").read_text(encoding="utf-8").splitlines():
+        if not line or line.startswith("#"):
+            continue
+        code, _coordinates, zone_id, *_comment = line.split("\t")
+        country_zones.setdefault(code, zone_id)
+    country_zones.update(_COUNTRY_ZONE_OVERRIDES)
+    return sorted(
+        (
+            (country_name, country_zones[country_code])
+            for country_code, country_name in country_names.items()
+        ),
+        key=lambda item: "".join(
+            character
+            for character in unicodedata.normalize("NFKD", item[0].casefold())
+            if not unicodedata.combining(character)
+        ),
+    )
+
+
+COUNTRY_TIME_ZONES: list[tuple[str, str]] = _load_country_time_zones()
+COUNTRIES: list[str] = [country for country, _zone_id in COUNTRY_TIME_ZONES]
+_COUNTRY_ZONE_BY_NAME = {
+    country.casefold(): zone_id for country, zone_id in COUNTRY_TIME_ZONES
+}
+
+
+def time_zone_for_country(country: str) -> str | None:
+    return _COUNTRY_ZONE_BY_NAME.get(country.strip().casefold())
+
 
 def regional_display_rank(location: Location, location_order: str) -> int:
     """Return a location's priority group for the selected geographic ordering."""
@@ -159,14 +282,19 @@ def regional_display_rank(location: Location, location_order: str) -> int:
     raise ValueError(f"Unknown location order: {location_order}")
 
 
-def format_gmt_offset(offset: int) -> str:
+def format_gmt_offset(offset: Offset) -> str:
     if offset == 0:
         return "GMT"
-    return f"GMT{offset:+d}"
+    total_minutes = round(offset * 60)
+    sign = "+" if total_minutes > 0 else "-"
+    hours, minutes = divmod(abs(total_minutes), 60)
+    if minutes == 0:
+        return f"GMT{sign}{hours}"
+    return f"GMT{sign}{hours}:{minutes:02d}"
 
 
-def offset_for(location: Location, at_utc: datetime) -> tuple[int, str] | None:
-    """Return a whole-hour live offset and abbreviation, or None if excluded."""
+def offset_for(location: Location, at_utc: datetime) -> tuple[Offset, str] | None:
+    """Return a live supported offset and abbreviation, or None if excluded."""
     if at_utc.tzinfo is None:
         at_utc = at_utc.replace(tzinfo=timezone.utc)
     else:
@@ -180,11 +308,13 @@ def offset_for(location: Location, at_utc: datetime) -> tuple[int, str] | None:
     delta = local.utcoffset()
     if delta is None:
         return None
-    seconds = delta.total_seconds()
-    if seconds % 3600:
+    total_minutes = int(delta.total_seconds() // 60)
+    if total_minutes % 15:
         return None
-    offset = int(seconds // 3600)
-    if offset < -12 or offset > 12:
+    offset: Offset = total_minutes / 60
+    if offset.is_integer():
+        offset = int(offset)
+    if offset not in OFFSET_ORDER:
         return None
     return offset, local.tzname() or format_gmt_offset(offset)
 
@@ -202,7 +332,7 @@ def snapshots(
     else:
         now = now.astimezone(timezone.utc)
 
-    grouped: dict[int, list[tuple[Location, str]]] = {
+    grouped: dict[Offset, list[tuple[Location, str]]] = {
         offset: [] for offset in OFFSET_ORDER
     }
     for location in locations:

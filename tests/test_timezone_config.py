@@ -25,7 +25,7 @@ class TimeZoneConfigTests(unittest.TestCase):
         self.assertEqual(self.config.load_reference_offset(), DEFAULT_REFERENCE_OFFSET)
         self.path.write_text("not json", encoding="utf-8")
         self.assertEqual(self.config.load_reference_offset(), DEFAULT_REFERENCE_OFFSET)
-        self.path.write_text('{"reference_offset": 14}', encoding="utf-8")
+        self.path.write_text('{"reference_offset": 14.25}', encoding="utf-8")
         self.assertEqual(self.config.load_reference_offset(), DEFAULT_REFERENCE_OFFSET)
         self.path.write_text('{"reference_offset": true}', encoding="utf-8")
         self.assertEqual(self.config.load_reference_offset(), DEFAULT_REFERENCE_OFFSET)
@@ -42,6 +42,10 @@ class TimeZoneConfigTests(unittest.TestCase):
                 "location_order": LOCATION_ORDER_WESTERN,
             },
         )
+
+    def test_fractional_reference_offset_is_saved_and_restored(self):
+        self.assertTrue(self.config.save_reference_offset(5.5))
+        self.assertEqual(self.config.load_reference_offset(), 5.5)
 
     def test_reference_and_location_order_are_preserved_together(self):
         self.config.save_reference_offset(-6)

@@ -4,24 +4,31 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfoNotFoundError
 
 from timezone_data import (
+    COUNTRIES,
     OFFSET_ORDER,
     Location,
     format_gmt_offset,
     offset_for,
     time_zone_database_available,
     snapshots,
+    time_zone_for_country,
 )
 
 
 class TimeZoneDataTests(unittest.TestCase):
-    def test_offset_order_has_all_25_rows_in_requested_order(self):
-        self.assertEqual(OFFSET_ORDER, tuple(range(-12, 13)))
-        self.assertEqual(len(OFFSET_ORDER), 25)
+    def test_offset_order_covers_world_quarter_hour_offsets(self):
+        self.assertEqual(OFFSET_ORDER[0], -12)
+        self.assertEqual(OFFSET_ORDER[-1], 14)
+        self.assertIn(5.5, OFFSET_ORDER)
+        self.assertIn(5.75, OFFSET_ORDER)
+        self.assertIn(12.75, OFFSET_ORDER)
 
     def test_gmt_offset_formatting(self):
         self.assertEqual(format_gmt_offset(0), "GMT")
         self.assertEqual(format_gmt_offset(7), "GMT+7")
         self.assertEqual(format_gmt_offset(-12), "GMT-12")
+        self.assertEqual(format_gmt_offset(5.5), "GMT+5:30")
+        self.assertEqual(format_gmt_offset(5.75), "GMT+5:45")
 
     def test_london_moves_rows_for_daylight_saving(self):
         london = Location("United Kingdom", "London", "Europe/London")
@@ -30,12 +37,19 @@ class TimeZoneDataTests(unittest.TestCase):
         self.assertEqual(offset_for(london, winter), (0, "GMT"))
         self.assertEqual(offset_for(london, summer), (1, "BST"))
 
-    def test_non_integer_and_out_of_range_offsets_are_excluded(self):
+    def test_fractional_and_dateline_offsets_are_supported(self):
         at_utc = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
         kolkata = Location("India", "New Delhi", "Asia/Kolkata")
         kiritimati = Location("Kiribati", "Kiritimati", "Pacific/Kiritimati")
-        self.assertIsNone(offset_for(kolkata, at_utc))
-        self.assertIsNone(offset_for(kiritimati, at_utc))
+        self.assertEqual(offset_for(kolkata, at_utc), (5.5, "IST"))
+        self.assertEqual(offset_for(kiritimati, at_utc), (14, "+14"))
+
+    def test_country_catalogue_is_complete_and_alphabetical(self):
+        self.assertEqual(len(COUNTRIES), 249)
+        self.assertEqual(len(COUNTRIES), len(set(COUNTRIES)))
+        self.assertEqual(COUNTRIES[:3], ["Afghanistan", "Åland Islands", "Albania"])
+        self.assertEqual(time_zone_for_country("India"), "Asia/Kolkata")
+        self.assertEqual(time_zone_for_country("united states"), "America/New_York")
 
     def test_missing_database_is_detected(self):
         with patch(

@@ -23,12 +23,14 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
     QMenu,
+    QComboBox,
     QPushButton,
     QStyle,
     QSystemTrayIcon,
@@ -44,11 +46,15 @@ from timezone_config import (
     is_valid_reference_offset,
 )
 from timezone_data import (
+    COUNTRIES,
     OFFSET_ORDER,
     Location,
+    Offset,
     TimeZoneSnapshot,
     format_gmt_offset,
+    offset_for,
     snapshots,
+    time_zone_for_country,
 )
 
 
@@ -156,6 +162,10 @@ QScrollBar::handle:vertical:hover {
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0;
+}
+QWidget#timezoneRow[searchHighlight="true"] {
+    border: 2px solid #ffffff;
+    border-radius: 6px;
 }
 QLabel#futureOffsetLabel {
     color: #62d5c4;
@@ -380,11 +390,38 @@ class TitleBar(QFrame):
         reset.setToolTip("Reset reference to GMT")
         reset.clicked.connect(window.reset_reference)
 
+        country_search = QComboBox()
+        country_search.setObjectName("countrySearch")
+        country_search.setEditable(True)
+        country_search.addItems(COUNTRIES)
+        country_search.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        country_search.setCurrentIndex(-1)
+        country_search.lineEdit().clear()
+        country_search.setPlaceholderText("Search country")
+        longest_country = max(COUNTRIES, key=len)
+        popup_width = country_search.fontMetrics().horizontalAdvance(longest_country) + 52
+        country_search.setFixedWidth(260)
+        country_search.view().setMinimumWidth(popup_width)
+        country_search.setMaxVisibleItems(18)
+        country_search.completer().setCaseSensitivity(
+            Qt.CaseSensitivity.CaseInsensitive
+        )
+        country_search.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+        country_search.setFixedHeight(30)
+        country_search.setToolTip("Search for a country")
+        country_search.activated[int].connect(
+            lambda index: window.search_country(country_search.itemText(index))
+        )
+        country_search.lineEdit().returnPressed.connect(
+            lambda: window.search_country(country_search.currentText())
+        )
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(5, 0, 5, 0)
         layout.setSpacing(0)
         layout.addWidget(reset)
-        layout.addSpacing(42)
+        layout.addWidget(country_search)
+        layout.addSpacing(10)
         layout.addStretch()
         layout.addLayout(title_stack)
         layout.addStretch()
@@ -453,9 +490,17 @@ class LocationPairCell(QWidget):
 
 
 class TimeZoneRow(QWidget):
-    def __init__(self, offset: int, parent: QWidget | None = None) -> None:
+    def __init__(self, offset: Offset, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.offset = offset
+        self.setObjectName("timezoneRow")
+        self.setProperty("searchHighlight", False)
+        self._search_glow = QGraphicsDropShadowEffect(self)
+        self._search_glow.setColor(QColor("#ffffff"))
+        self._search_glow.setBlurRadius(16)
+        self._search_glow.setOffset(0, 0)
+        self._search_glow.setEnabled(False)
+        self.setGraphicsEffect(self._search_glow)
 
         self.offset_label = QLabel(format_gmt_offset(offset))
         self.offset_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -496,7 +541,7 @@ class TimeZoneRow(QWidget):
         layout.addWidget(self.time_label)
         self.set_reference_offset(0)
 
-    def set_reference_offset(self, reference_offset: int) -> None:
+    def set_reference_offset(self, reference_offset: Offset) -> None:
         if self.offset == reference_offset:
             offset_name = "referenceOffsetLabel"
             time_name = "referenceTimeLabel"
@@ -508,6 +553,14 @@ class TimeZoneRow(QWidget):
             time_name = "futureTimeLabel"
         self._set_dynamic_style(self.offset_label, offset_name)
         self._set_dynamic_style(self.time_label, time_name)
+
+    def set_search_highlight(self, highlighted: bool) -> None:
+        self.setProperty("searchHighlight", highlighted)
+        self._search_glow.setEnabled(highlighted)
+        style = self.style()
+        style.unpolish(self)
+        style.polish(self)
+        self.update()
 
     @staticmethod
     def _set_dynamic_style(label: QLabel, object_name: str) -> None:
@@ -538,7 +591,7 @@ class TimeZoneRow(QWidget):
         self.local_zone_label.setVisible(bool(local_zones))
 
     @staticmethod
-    def local_zone_text(abbreviations: tuple[str, ...], offset: int) -> str:
+    def local_zone_text(abbreviations: tuple[str, ...], offset: Offset) -> str:
         """Keep named local zones, omitting labels that only repeat the GMT offset."""
         numeric_offset = re.compile(r"(?:GMT|UTC)?[+-]\d{1,2}(?::?\d{2})?$")
         meaningful = [
@@ -561,8 +614,9 @@ class TimeZoneWindow(QMainWindow):
         super().__init__()
         self._allow_close = False
         self._tray: QSystemTrayIcon | None = None
-        self._rows: dict[int, TimeZoneRow] = {}
-        self._items: dict[int, QListWidgetItem] = {}
+        self._rows: dict[Offset, TimeZoneRow] = {}
+        self._items: dict[Offset, QListWidgetItem] = {}
+        self._highlighted_row: TimeZoneRow | None = None
         self._config = TimeZoneConfig(config_path)
         self.reference_offset = self._config.load_reference_offset()
         self.location_order = self._config.load_location_order()
@@ -650,7 +704,7 @@ class TimeZoneWindow(QMainWindow):
             self._items[offset] = item
 
     @staticmethod
-    def reference_action_text(offset: int) -> str:
+    def reference_action_text(offset: Offset) -> str:
         return f"Set {format_gmt_offset(offset)} as my reference"
 
     def _row_at(self, position: QPoint) -> TimeZoneRow | None:
@@ -688,7 +742,7 @@ class TimeZoneWindow(QMainWindow):
         )
         return menu
 
-    def set_reference_offset(self, offset: int) -> None:
+    def set_reference_offset(self, offset: Offset) -> None:
         if not is_valid_reference_offset(offset):
             raise ValueError(f"Invalid reference offset: {offset}")
         self.reference_offset = offset
@@ -706,6 +760,29 @@ class TimeZoneWindow(QMainWindow):
     def reset_reference(self) -> None:
         self.set_reference_offset(0)
         self._center_on_gmt()
+
+    def search_country(self, country: str) -> None:
+        """Centre and highlight the current GMT row for a selected country."""
+        country_name = country.strip()
+        if not country_name:
+            return
+        zone_id = time_zone_for_country(country_name)
+        if zone_id is None:
+            return
+        current = datetime.now(timezone.utc)
+        result = offset_for(Location(country_name, "", zone_id), current)
+        if result is None:
+            return
+        offset, _abbreviation = result
+        if self._highlighted_row is not None:
+            self._highlighted_row.set_search_highlight(False)
+        row = self._rows[offset]
+        row.set_search_highlight(True)
+        self._highlighted_row = row
+        self.list_widget.scrollToItem(
+            self._items[offset],
+            QListWidget.ScrollHint.PositionAtCenter,
+        )
 
     def _center_on_gmt(self) -> None:
         gmt_index = OFFSET_ORDER.index(0)

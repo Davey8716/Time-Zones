@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 
 from PySide6.QtCore import QStandardPaths
+from timezone_data import OFFSET_ORDER, Offset
 
 
 MIN_OFFSET = -12
-MAX_OFFSET = 12
+MAX_OFFSET = 14
 DEFAULT_REFERENCE_OFFSET = 0
 LOCATION_ORDER_WESTERN = "western"
 LOCATION_ORDER_EASTERN = "eastern"
@@ -24,7 +25,7 @@ def default_config_path() -> Path:
 
 
 def is_valid_reference_offset(value: object) -> bool:
-    return type(value) is int and MIN_OFFSET <= value <= MAX_OFFSET
+    return type(value) in {int, float} and value in OFFSET_ORDER
 
 
 def is_valid_location_order(value: object) -> bool:
@@ -59,7 +60,7 @@ class TimeZoneConfig:
             ),
         }
 
-    def load_reference_offset(self) -> int:
+    def load_reference_offset(self) -> Offset:
         return self._normalised_data()["reference_offset"]  # type: ignore[return-value]
 
     def load_location_order(self) -> str:
@@ -78,7 +79,7 @@ class TimeZoneConfig:
             return False
         return True
 
-    def save_reference_offset(self, offset: int) -> bool:
+    def save_reference_offset(self, offset: Offset) -> bool:
         if not is_valid_reference_offset(offset):
             raise ValueError(f"Invalid reference offset: {offset}")
         data = self._normalised_data()

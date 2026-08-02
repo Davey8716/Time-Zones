@@ -10,6 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QApplication,
+    QComboBox,
     QLabel,
     QListWidget,
     QPushButton,
@@ -49,7 +50,7 @@ class UiSmokeTests(unittest.TestCase):
         try:
             window.show()
             self.app.processEvents()
-            self.assertEqual(window.list_widget.count(), 25)
+            self.assertEqual(window.list_widget.count(), len(OFFSET_ORDER))
             self.assertEqual(tuple(window._rows), OFFSET_ORDER)
             self.assertEqual(
                 window._rows[0].offset_label.objectName(), "referenceOffsetLabel"
@@ -174,6 +175,32 @@ class UiSmokeTests(unittest.TestCase):
                 abs(gmt_rect.center().y() - viewport_center),
                 gmt_rect.height(),
             )
+        finally:
+            window._timer.stop()
+            window.close()
+
+    def test_country_search_centres_and_highlights_matching_offset(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            search = window.findChild(QComboBox, "countrySearch")
+            self.assertIsNotNone(search)
+            window.search_country("Japan")
+            row = window._rows[9]
+            self.assertIs(window._highlighted_row, row)
+            self.assertTrue(row.property("searchHighlight"))
+            self.assertTrue(row.graphicsEffect().isEnabled())
+            self.assertEqual(search.toolTip(), "Search for a country")
+            self.assertEqual(search.count(), 249)
+            self.assertGreaterEqual(
+                search.view().minimumWidth(),
+                search.fontMetrics().horizontalAdvance(max(
+                    (search.itemText(index) for index in range(search.count())),
+                    key=len,
+                )),
+            )
+            window.search_country("India")
+            self.assertIs(window._highlighted_row, window._rows[5.5])
+            self.assertFalse(row.property("searchHighlight"))
         finally:
             window._timer.stop()
             window.close()
