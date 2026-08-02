@@ -256,7 +256,12 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(window.reference_offset, -6)
             self.assertIs(window._highlighted_row, window._rows[-6])
             self.assertTrue(window._rows[-6].property("searchHighlight"))
-            self.assertTrue(window._rows[-6]._search_glow.isEnabled())
+            self.assertTrue(window._rows[-6].offset_slot.property("searchHighlight"))
+            self.assertTrue(window._rows[-6].time_slot.property("searchHighlight"))
+            self.assertIsNone(window._rows[-6].locations_slot.graphicsEffect())
+            self.assertTrue(
+                all(glow.isEnabled() for glow in window._rows[-6]._search_glows)
+            )
             self.assertEqual(
                 window._rows[-6].offset_label.objectName(), "referenceOffsetLabel"
             )
@@ -285,6 +290,9 @@ class UiSmokeTests(unittest.TestCase):
             gmt_row = window._rows[0]
             self.assertIs(window._highlighted_row, gmt_row)
             self.assertTrue(gmt_row.property("searchHighlight"))
+            self.assertTrue(gmt_row.offset_slot.property("searchHighlight"))
+            self.assertTrue(gmt_row.time_slot.property("searchHighlight"))
+            self.assertIsNone(gmt_row.locations_slot.graphicsEffect())
             self.assertFalse(gmt_row.location_cells[0].isHidden())
             self.assertEqual(
                 gmt_row._search_flash.state(), QAbstractAnimation.State.Running
@@ -297,8 +305,10 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(
                 gmt_row._search_flash.state(), QAbstractAnimation.State.Stopped
             )
-            self.assertEqual(gmt_row._search_glow.blurRadius(), 16)
-            self.assertTrue(gmt_row._search_glow.isEnabled())
+            self.assertTrue(
+                all(glow.blurRadius() == 16 for glow in gmt_row._search_glows)
+            )
+            self.assertTrue(all(glow.isEnabled() for glow in gmt_row._search_glows))
             gmt_rect = window.list_widget.visualItemRect(window._items[0])
             viewport_center = window.list_widget.viewport().rect().center().y()
             self.assertLessEqual(
@@ -602,7 +612,10 @@ class UiSmokeTests(unittest.TestCase):
             )
             self.assertIs(window._highlighted_row, row)
             self.assertTrue(row.property("searchHighlight"))
-            self.assertTrue(row.graphicsEffect().isEnabled())
+            self.assertTrue(row.offset_slot.property("searchHighlight"))
+            self.assertTrue(row.time_slot.property("searchHighlight"))
+            self.assertIsNone(row.locations_slot.graphicsEffect())
+            self.assertTrue(all(glow.isEnabled() for glow in row._search_glows))
             reference_rect = window.list_widget.visualItemRect(window._items[9])
             self.assertLessEqual(
                 abs(

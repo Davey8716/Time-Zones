@@ -110,7 +110,7 @@ QScrollBar::handle:vertical:hover {
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0;
 }
-QWidget#timezoneRow[searchHighlight="true"] {
+QWidget#offsetSlot[searchHighlight="true"], QWidget#timeSlot[searchHighlight="true"] {
     border: 2px solid #ffffff;
     border-radius: 6px;
 }
@@ -155,7 +155,7 @@ QLabel#timeTransitionLabel {
     color: #7f91a6;
     font-size: 8pt;
 }
-QWidget#offsetSlot {
+QWidget#offsetSlot, QWidget#timeSlot {
     background: #11151c;
 }
 QLabel#futureOffsetLabel, QLabel#referenceOffsetLabel, QLabel#pastOffsetLabel,

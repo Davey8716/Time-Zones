@@ -8,7 +8,15 @@ from pathlib import Path
 import re
 from zoneinfo import ZoneInfo
 
-from PySide6.QtCore import QEvent, QPoint, QPropertyAnimation, QSize, Qt, QTimer
+from PySide6.QtCore import (
+    QEvent,
+    QPoint,
+    QParallelAnimationGroup,
+    QPropertyAnimation,
+    QSize,
+    Qt,
+    QTimer,
+)
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -352,22 +360,10 @@ class TimeZoneRow(QWidget):
         self.locations: tuple[Location, ...] = ()
         self.setObjectName("timezoneRow")
         self.setProperty("searchHighlight", False)
-        self._search_glow = QGraphicsDropShadowEffect(self)
-        self._search_glow.setColor(QColor("#ffffff"))
-        self._search_glow.setBlurRadius(16)
-        self._search_glow.setOffset(0, 0)
-        self._search_glow.setEnabled(False)
-        self.setGraphicsEffect(self._search_glow)
-        self._search_flash = QPropertyAnimation(
-            self._search_glow, b"blurRadius", self
-        )
-        self._search_flash.setDuration(550)
-        self._search_flash.setStartValue(8.0)
-        self._search_flash.setKeyValueAt(0.45, 28.0)
-        self._search_flash.setEndValue(16.0)
 
         self.offset_slot = QWidget(self)
         self.offset_slot.setObjectName("offsetSlot")
+        self.offset_slot.setProperty("searchHighlight", False)
         self.offset_slot.setFixedWidth(155)
 
         self.offset_label = QLabel(format_gmt_offset(offset), self.offset_slot)
@@ -412,6 +408,7 @@ class TimeZoneRow(QWidget):
 
         self.time_slot = QWidget(self)
         self.time_slot.setObjectName("timeSlot")
+        self.time_slot.setProperty("searchHighlight", False)
         self.time_slot.setFixedWidth(215)
 
         self.time_label = QLabel(self.time_slot)
@@ -442,7 +439,29 @@ class TimeZoneRow(QWidget):
         layout.addWidget(self.offset_slot)
         layout.addWidget(self.locations_slot, 1)
         layout.addWidget(self.time_slot)
+        self._search_glows = (
+            self._create_search_glow(self.offset_slot),
+            self._create_search_glow(self.time_slot),
+        )
+        self._search_flash = QParallelAnimationGroup(self)
+        for glow in self._search_glows:
+            animation = QPropertyAnimation(glow, b"blurRadius", self._search_flash)
+            animation.setDuration(550)
+            animation.setStartValue(8.0)
+            animation.setKeyValueAt(0.45, 28.0)
+            animation.setEndValue(16.0)
+            self._search_flash.addAnimation(animation)
         self.set_reference_offset(0)
+
+    @staticmethod
+    def _create_search_glow(widget: QWidget) -> QGraphicsDropShadowEffect:
+        glow = QGraphicsDropShadowEffect(widget)
+        glow.setColor(QColor("#ffffff"))
+        glow.setBlurRadius(16)
+        glow.setOffset(0, 0)
+        glow.setEnabled(False)
+        widget.setGraphicsEffect(glow)
+        return glow
 
     @staticmethod
     def hemisphere_text(offset: Offset) -> str:
@@ -463,9 +482,16 @@ class TimeZoneRow(QWidget):
 
     def set_search_highlight(self, highlighted: bool) -> None:
         self._search_flash.stop()
-        self._search_glow.setBlurRadius(16)
+        for glow in self._search_glows:
+            glow.setBlurRadius(16)
+            glow.setEnabled(highlighted)
         self.setProperty("searchHighlight", highlighted)
-        self._search_glow.setEnabled(highlighted)
+        for slot in (self.offset_slot, self.time_slot):
+            slot.setProperty("searchHighlight", highlighted)
+            style = slot.style()
+            style.unpolish(slot)
+            style.polish(slot)
+            slot.update()
         style = self.style()
         style.unpolish(self)
         style.polish(self)
