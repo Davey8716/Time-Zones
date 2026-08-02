@@ -106,6 +106,10 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(subtitle.alignment(), Qt.AlignmentFlag.AlignCenter)
             reset_button = window.findChild(QPushButton, "resetButton")
             self.assertEqual(reset_button.toolTip(), "Reset reference to GMT")
+            self.assertIs(reset_button.parentWidget(), headers[0].parentWidget())
+            self.assertLess(
+                reset_button.geometry().right(), headers[0].geometry().left()
+            )
             minimize_button = window.findChild(QPushButton, "windowButton")
             close_button = window.findChild(QPushButton, "closeButton")
             self.assertEqual(minimize_button.size(), close_button.size())
@@ -183,7 +187,13 @@ class UiSmokeTests(unittest.TestCase):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
         try:
             search = window.findChild(QComboBox, "countrySearch")
+            search_label = window.findChild(QLabel, "countrySearchLabel")
             self.assertIsNotNone(search)
+            self.assertIsNotNone(search_label)
+            self.assertEqual(search_label.text(), "World countries list")
+            window.show()
+            self.app.processEvents()
+            self.assertLess(search_label.geometry().right(), search.geometry().left())
             window.search_country("Japan")
             row = window._rows[9]
             self.assertIs(window._highlighted_row, row)

@@ -87,6 +87,11 @@ QLabel#appSubtitle {
     color: #758397;
     font-size: 8.5pt;
 }
+QLabel#countrySearchLabel {
+    background: transparent;
+    color: #758397;
+    font-size: 8.5pt;
+}
 QLabel#columnHeader {
     background: transparent;
     color: #758397;
@@ -109,10 +114,10 @@ QPushButton#windowButton:hover {
 QPushButton#resetButton {
     border: none;
     background: transparent;
-    min-width: 42px;
-    max-width: 42px;
-    min-height: 34px;
-    max-height: 34px;
+    min-width: 34px;
+    max-width: 34px;
+    min-height: 30px;
+    max-height: 30px;
 }
 QPushButton#resetButton:hover {
     background: #29313d;
@@ -383,12 +388,9 @@ class TitleBar(QFrame):
         close.setToolTip("Hide to tray")
         close.clicked.connect(window.close)
 
-        reset = QPushButton()
-        reset.setObjectName("resetButton")
-        reset.setIcon(create_reset_icon())
-        reset.setIconSize(QSize(18, 18))
-        reset.setToolTip("Reset reference to GMT")
-        reset.clicked.connect(window.reset_reference)
+        country_search_label = QLabel("World countries list")
+        country_search_label.setObjectName("countrySearchLabel")
+        country_search_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         country_search = QComboBox()
         country_search.setObjectName("countrySearch")
@@ -419,7 +421,8 @@ class TitleBar(QFrame):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(5, 0, 5, 0)
         layout.setSpacing(0)
-        layout.addWidget(reset)
+        layout.addWidget(country_search_label)
+        layout.addSpacing(8)
         layout.addWidget(country_search)
         layout.addSpacing(10)
         layout.addStretch()
@@ -672,16 +675,42 @@ class TimeZoneWindow(QMainWindow):
 
     def _create_column_header(self) -> QWidget:
         header = QWidget()
-        header.setFixedHeight(32)
+        header.setFixedHeight(34)
         layout = QHBoxLayout(header)
-        layout.setContentsMargins(28, 6, 32, 4)
+        layout.setContentsMargins(28, 2, 32, 2)
         layout.setSpacing(14)
-        for text, width, icon, tooltip in (
-            ("", 155, "timezone", "Offset and local zone"),
-            ("", None, "globe", "Country / capital or centre"),
-            ("", 215, "clock", "Local date and time"),
+
+        offset_header = QWidget()
+        offset_header.setFixedWidth(155)
+        offset_layout = QHBoxLayout(offset_header)
+        offset_layout.setContentsMargins(0, 0, 0, 0)
+        offset_layout.setSpacing(0)
+
+        reset = QPushButton()
+        reset.setObjectName("resetButton")
+        reset.setIcon(create_reset_icon())
+        reset.setIconSize(QSize(18, 18))
+        reset.setToolTip("Reset reference to GMT")
+        reset.clicked.connect(self.reset_reference)
+
+        offset_icon = QLabel()
+        offset_icon.setObjectName("columnHeader")
+        offset_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        offset_icon.setToolTip("Offset and local zone")
+        offset_icon.setPixmap(create_column_icon("timezone"))
+
+        right_balance = QWidget()
+        right_balance.setFixedWidth(34)
+        offset_layout.addWidget(reset)
+        offset_layout.addWidget(offset_icon, 1)
+        offset_layout.addWidget(right_balance)
+        layout.addWidget(offset_header)
+
+        for width, icon, tooltip in (
+            (None, "globe", "Country / capital or centre"),
+            (215, "clock", "Local date and time"),
         ):
-            label = QLabel(text)
+            label = QLabel()
             label.setObjectName("columnHeader")
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setToolTip(tooltip)
