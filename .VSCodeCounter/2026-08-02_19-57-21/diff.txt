@@ -1,0 +1,35 @@
+Date : 2026-08-02 19:57:21
+Directory : c:\Users\davey\Desktop\Projects\Time Zones
+Total : 8 files,  1140 codes, 8 comments, 60 blanks, all 1208 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Python   |          7 |      1,129 |          8 |         60 |      1,197 |
+| Markdown |          1 |         11 |          0 |          0 |         11 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                     | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                        |          8 |      1,140 |          8 |         60 |      1,208 |
+| . (Files)                                                                |          5 |        340 |          8 |         17 |        365 |
+| tests                                                                    |          3 |        800 |          0 |         43 |        843 |
++--------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                 | language | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| c:\Users\davey\Desktop\Projects\Time Zones\README.md                     | Markdown |         11 |          0 |          0 |         11 |
+| c:\Users\davey\Desktop\Projects\Time Zones\app_style.py                  | Python   |        225 |          1 |          2 |        228 |
+| c:\Users\davey\Desktop\Projects\Time Zones\app_window.py                 | Python   |        -72 |          2 |         10 |        -60 |
+| c:\Users\davey\Desktop\Projects\Time Zones\tests\test_timezone_config.py | Python   |         22 |          0 |          1 |         23 |
+| c:\Users\davey\Desktop\Projects\Time Zones\tests\test_timezone_data.py   | Python   |        232 |          0 |         10 |        242 |
+| c:\Users\davey\Desktop\Projects\Time Zones\tests\test_ui_smoke.py        | Python   |        546 |          0 |         32 |        578 |
+| c:\Users\davey\Desktop\Projects\Time Zones\timezone_config.py            | Python   |         21 |          0 |          4 |         25 |
+| c:\Users\davey\Desktop\Projects\Time Zones\timezone_data.py              | Python   |        155 |          5 |          1 |        161 |
+| Total                                                                    |          |      1,140 |          8 |         60 |      1,208 |
++--------------------------------------------------------------------------+----------+------------+------------+------------+------------+

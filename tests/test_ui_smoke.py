@@ -33,6 +33,7 @@ from timezone_data import (
     OFFSET_ORDER,
     TimeZoneSnapshot,
     format_gmt_offset,
+    offset_for,
 )
 from timezone_config import (
     LOCATION_ORDER_EASTERN,
@@ -101,28 +102,40 @@ class UiSmokeTests(unittest.TestCase):
             self.app.processEvents()
             self.assertEqual(window.list_widget.count(), len(OFFSET_ORDER))
             self.assertEqual(tuple(window._rows), OFFSET_ORDER)
+            reference_offset = window.reference_offset
+            reference_index = OFFSET_ORDER.index(reference_offset)
+            past_offset = OFFSET_ORDER[reference_index - 1]
+            future_offset = OFFSET_ORDER[reference_index + 1]
             self.assertEqual(
-                window._rows[0].offset_label.objectName(), "referenceOffsetLabel"
+                window._rows[reference_offset].offset_label.objectName(),
+                "referenceOffsetLabel",
             )
             self.assertEqual(
-                window._rows[0].time_label.objectName(), "referenceTimeLabel"
+                window._rows[reference_offset].time_label.objectName(),
+                "referenceTimeLabel",
             )
             self.assertEqual(
-                window._rows[-1].offset_label.objectName(), "pastOffsetLabel"
+                window._rows[past_offset].offset_label.objectName(), "pastOffsetLabel"
             )
-            self.assertEqual(window._rows[-1].time_label.objectName(), "pastTimeLabel")
             self.assertEqual(
-                window._rows[1].offset_label.objectName(), "futureOffsetLabel"
+                window._rows[past_offset].time_label.objectName(), "pastTimeLabel"
             )
-            self.assertEqual(window._rows[1].time_label.objectName(), "futureTimeLabel")
-            gmt_item = window.list_widget.item(OFFSET_ORDER.index(0))
-            gmt_rect = window.list_widget.visualItemRect(gmt_item)
+            self.assertEqual(
+                window._rows[future_offset].offset_label.objectName(),
+                "futureOffsetLabel",
+            )
+            self.assertEqual(
+                window._rows[future_offset].time_label.objectName(),
+                "futureTimeLabel",
+            )
+            reference_item = window.list_widget.item(reference_index)
+            reference_rect = window.list_widget.visualItemRect(reference_item)
             viewport_center = window.list_widget.viewport().rect().center().y()
             self.assertLessEqual(
-                abs(gmt_rect.center().y() - viewport_center),
-                gmt_rect.height(),
+                abs(reference_rect.center().y() - viewport_center),
+                reference_rect.height(),
             )
-            row = window._rows[0]
+            row = window._rows[reference_offset]
             for label in (
                 row.offset_label,
                 row.local_zone_label,
@@ -192,7 +205,7 @@ class UiSmokeTests(unittest.TestCase):
                 1,
             )
             reset_button = window.findChild(QPushButton, "resetButton")
-            self.assertEqual(reset_button.toolTip(), "Reset reference to UTC")
+            self.assertEqual(reset_button.toolTip(), "Reset reference")
             self.assertIs(reset_button.parentWidget(), headers[0].parentWidget())
             self.assertLess(
                 reset_button.geometry().right(), headers[0].geometry().left()
@@ -242,8 +255,15 @@ class UiSmokeTests(unittest.TestCase):
                 QListWidget.ScrollHint.PositionAtTop,
             )
             window.findChild(QPushButton, "resetButton").click()
-            self.assertEqual(window.reference_offset, 0)
-            self.assertEqual(TimeZoneConfig(self.config_path).load_reference_offset(), 0)
+            current = datetime.now(timezone.utc)
+            portugal_offset = offset_for(
+                Location("Portugal (Mainland)", "", "Europe/Lisbon"), current
+            )[0]
+            self.assertEqual(window.reference_offset, portugal_offset)
+            self.assertEqual(
+                TimeZoneConfig(self.config_path).load_reference_offset(),
+                portugal_offset,
+            )
             self.assertEqual(
                 TimeZoneConfig(self.config_path).load_reference_country(),
                 "Portugal (Mainland)",
@@ -253,7 +273,7 @@ class UiSmokeTests(unittest.TestCase):
                 search.currentText(),
                 window._gmt_country(datetime.now(timezone.utc)),
             )
-            gmt_row = window._rows[0]
+            gmt_row = window._rows[portugal_offset]
             self.assertIs(window._highlighted_row, gmt_row)
             self.assertTrue(gmt_row.property("searchHighlight"))
             self.assertEqual(
@@ -285,24 +305,30 @@ class UiSmokeTests(unittest.TestCase):
             window.show()
             self.app.processEvents()
             config = TimeZoneConfig(self.config_path)
-            self.assertEqual(window.reference_offset, 0)
+            current = datetime.now(timezone.utc)
+            portugal_offset = offset_for(
+                Location("Portugal (Mainland)", "", "Europe/Lisbon"), current
+            )[0]
+            self.assertEqual(window.reference_offset, portugal_offset)
             self.assertEqual(window.reference_country, "Portugal (Mainland)")
             self.assertEqual(
                 window.title_bar.country_search.currentText(),
                 "Portugal (Mainland)",
             )
-            self.assertEqual(config.load_reference_offset(), 0)
+            self.assertEqual(config.load_reference_offset(), portugal_offset)
             self.assertEqual(
                 config.load_reference_country(), "Portugal (Mainland)"
             )
-            self.assertIs(window._highlighted_row, window._rows[0])
-            gmt_rect = window.list_widget.visualItemRect(window._items[0])
+            self.assertIs(window._highlighted_row, window._rows[portugal_offset])
+            reference_rect = window.list_widget.visualItemRect(
+                window._items[portugal_offset]
+            )
             self.assertLessEqual(
                 abs(
-                    gmt_rect.center().y()
+                    reference_rect.center().y()
                     - window.list_widget.viewport().rect().center().y()
                 ),
-                gmt_rect.height(),
+                reference_rect.height(),
             )
         finally:
             window._timer.stop()
@@ -343,8 +369,8 @@ class UiSmokeTests(unittest.TestCase):
             window.reference_offset = 0
             window.reference_country = "Portugal (Mainland)"
             window._restore_reference(summer)
-            self.assertEqual(window.reference_offset, 0)
-            self.assertEqual(config.load_reference_offset(), 0)
+            self.assertEqual(window.reference_offset, 1)
+            self.assertEqual(config.load_reference_offset(), 1)
         finally:
             window._timer.stop()
             window.close()
@@ -387,6 +413,42 @@ class UiSmokeTests(unittest.TestCase):
         summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
         self.assertEqual(TimeZoneWindow._gmt_country(winter), "Portugal (Mainland)")
         self.assertEqual(TimeZoneWindow._gmt_country(summer), "Portugal (Mainland)")
+
+    def test_reference_country_offset_updates_during_refresh(self):
+        winter = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
+        summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
+        selections = (
+            (None, "United States (Eastern)"),
+            ("United States (Eastern)", "United States (Eastern)"),
+        )
+
+        for country, expected_country in selections:
+            with self.subTest(country=country):
+                config_path = self.config_path.with_name(
+                    f"reference-{country or 'manual'}.json"
+                )
+                window = TimeZoneWindow(enable_tray=False, config_path=config_path)
+                try:
+                    window.refresh_times(winter)
+                    window.set_reference_offset(-5, country=country, at_utc=winter)
+                    self.assertEqual(window.reference_country, expected_country)
+
+                    window.refresh_times(summer)
+
+                    self.assertEqual(window.reference_offset, -4)
+                    self.assertEqual(window.reference_country, expected_country)
+                    config = TimeZoneConfig(config_path)
+                    self.assertEqual(config.load_reference_offset(), -4)
+                    self.assertEqual(
+                        config.load_reference_country(), expected_country
+                    )
+                    self.assertEqual(
+                        window.title_bar.country_search.currentText(),
+                        expected_country,
+                    )
+                finally:
+                    window._timer.stop()
+                    window.close()
 
     def test_header_arrows_control_and_persist_location_order(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)

@@ -614,7 +614,7 @@ class TimeZoneWindow(QMainWindow):
         reset.setObjectName("resetButton")
         reset.setIcon(create_reset_icon())
         reset.setIconSize(QSize(18, 18))
-        reset.setToolTip("Reset reference to UTC")
+        reset.setToolTip("Reset reference")
         reset.clicked.connect(self.reset_reference)
 
         offset_icon = QLabel()
@@ -752,20 +752,24 @@ class TimeZoneWindow(QMainWindow):
         country_index = self.title_bar.country_search.findText(
             country or "", Qt.MatchFlag.MatchFixedString
         )
-        if country_index >= 0:
-            if not (country == self._gmt_country(at_utc) and offset == 0):
-                zone_id = time_zone_for_country(country or "")
-                if zone_id is not None:
-                    result = offset_for(Location(country or "", "", zone_id), at_utc)
-                    if result is not None:
-                        offset = result[0]
-        else:
+        if country_index < 0:
             country = (
                 self._gmt_country(at_utc)
                 if offset == 0
                 else self._country_for_offset(offset, at_utc)
             )
+        current_offset = self._offset_for_country(country or "", at_utc)
+        if current_offset is not None:
+            offset = current_offset
         self.set_reference_offset(offset, country=country, at_utc=at_utc)
+
+    @staticmethod
+    def _offset_for_country(country: str, at_utc: datetime) -> Offset | None:
+        zone_id = time_zone_for_country(country)
+        if zone_id is None:
+            return None
+        result = offset_for(Location(country, "", zone_id), at_utc)
+        return result[0] if result is not None else None
 
     def _country_for_offset(self, offset: Offset, at_utc: datetime) -> str:
         """Prefer a displayed country, then any alphabetical country-zone match."""
@@ -819,12 +823,13 @@ class TimeZoneWindow(QMainWindow):
     def reset_reference(self) -> None:
         current = datetime.now(timezone.utc)
         country = self._gmt_country(current)
-        self.set_reference_offset(0, country=country, at_utc=current)
-        self._highlight_offset(0, flash=True)
+        offset = self._offset_for_country(country, current) or 0
+        self.set_reference_offset(offset, country=country, at_utc=current)
+        self._highlight_offset(offset, flash=True)
 
     @staticmethod
     def _gmt_country(_at_utc: datetime) -> str:
-        """Return the country displayed when resetting the reference to GMT."""
+        """Return the country used when resetting the reference."""
         return "Portugal (Mainland)"
 
     def search_country(self, country: str) -> None:
@@ -878,6 +883,10 @@ class TimeZoneWindow(QMainWindow):
 
     def refresh_times(self, at_utc: datetime | None = None) -> None:
         current = at_utc or datetime.now(timezone.utc)
+        country = self.reference_country
+        current_offset = self._offset_for_country(country or "", current)
+        if current_offset is not None and current_offset != self.reference_offset:
+            self.set_reference_offset(current_offset, country=country, at_utc=current)
         current_snapshots = snapshots(current, location_order=self.location_order)
         reference_snapshot = next(
             snapshot
