@@ -7,7 +7,8 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QAbstractAnimation, QPoint, Qt
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -188,6 +189,27 @@ class UiSmokeTests(unittest.TestCase):
             window.findChild(QPushButton, "resetButton").click()
             self.assertEqual(window.reference_offset, 0)
             self.assertEqual(TimeZoneConfig(self.config_path).load_reference_offset(), 0)
+            search = window.findChild(QComboBox, "countrySearch")
+            self.assertEqual(
+                search.currentText(),
+                window._gmt_country(datetime.now(timezone.utc)),
+            )
+            gmt_row = window._rows[0]
+            self.assertIs(window._highlighted_row, gmt_row)
+            self.assertTrue(gmt_row.property("searchHighlight"))
+            self.assertEqual(
+                gmt_row._search_flash.state(), QAbstractAnimation.State.Running
+            )
+            window.findChild(QPushButton, "resetButton").click()
+            self.assertEqual(
+                gmt_row._search_flash.state(), QAbstractAnimation.State.Running
+            )
+            QTest.qWait(gmt_row._search_flash.duration() + 50)
+            self.assertEqual(
+                gmt_row._search_flash.state(), QAbstractAnimation.State.Stopped
+            )
+            self.assertEqual(gmt_row._search_glow.blurRadius(), 16)
+            self.assertTrue(gmt_row._search_glow.isEnabled())
             gmt_rect = window.list_widget.visualItemRect(window._items[0])
             viewport_center = window.list_widget.viewport().rect().center().y()
             self.assertLessEqual(
@@ -197,6 +219,12 @@ class UiSmokeTests(unittest.TestCase):
         finally:
             window._timer.stop()
             window.close()
+
+    def test_gmt_reset_country_is_always_portugal(self):
+        winter = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
+        summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
+        self.assertEqual(TimeZoneWindow._gmt_country(winter), "Portugal")
+        self.assertEqual(TimeZoneWindow._gmt_country(summer), "Portugal")
 
     def test_country_search_centres_and_highlights_matching_offset(self):
         window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)

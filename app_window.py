@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import re
 
-from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer
+from PySide6.QtCore import QEvent, QPoint, QPropertyAnimation, QSize, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -421,6 +421,7 @@ class TitleBar(QFrame):
         country_search.lineEdit().returnPressed.connect(
             lambda: window.search_country(country_search.currentText())
         )
+        self.country_search = country_search
 
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
@@ -527,6 +528,13 @@ class TimeZoneRow(QWidget):
         self._search_glow.setOffset(0, 0)
         self._search_glow.setEnabled(False)
         self.setGraphicsEffect(self._search_glow)
+        self._search_flash = QPropertyAnimation(
+            self._search_glow, b"blurRadius", self
+        )
+        self._search_flash.setDuration(550)
+        self._search_flash.setStartValue(8.0)
+        self._search_flash.setKeyValueAt(0.45, 28.0)
+        self._search_flash.setEndValue(16.0)
 
         self.offset_label = QLabel(format_gmt_offset(offset))
         self.offset_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -581,12 +589,18 @@ class TimeZoneRow(QWidget):
         self._set_dynamic_style(self.time_label, time_name)
 
     def set_search_highlight(self, highlighted: bool) -> None:
+        self._search_flash.stop()
+        self._search_glow.setBlurRadius(16)
         self.setProperty("searchHighlight", highlighted)
         self._search_glow.setEnabled(highlighted)
         style = self.style()
         style.unpolish(self)
         style.polish(self)
         self.update()
+
+    def flash_search_highlight(self) -> None:
+        self.set_search_highlight(True)
+        self._search_flash.start()
 
     @staticmethod
     def _set_dynamic_style(label: QLabel, object_name: str) -> None:
@@ -665,7 +679,8 @@ class TimeZoneWindow(QMainWindow):
         root = QVBoxLayout(surface)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-        root.addWidget(TitleBar(self))
+        self.title_bar = TitleBar(self)
+        root.addWidget(self.title_bar)
         root.addWidget(self._create_column_header())
 
         self.list_widget = QListWidget()
@@ -810,11 +825,22 @@ class TimeZoneWindow(QMainWindow):
         self.refresh_times()
 
     def reset_reference(self) -> None:
+        current = datetime.now(timezone.utc)
+        country = self._gmt_country(current)
         self.set_reference_offset(0)
-        self._center_on_gmt()
+        country_index = self.title_bar.country_search.findText(
+            country, Qt.MatchFlag.MatchFixedString
+        )
+        self.title_bar.country_search.setCurrentIndex(country_index)
+        self._highlight_offset(0, flash=True)
+
+    @staticmethod
+    def _gmt_country(_at_utc: datetime) -> str:
+        """Return the country displayed when resetting the reference to GMT."""
+        return "Portugal"
 
     def search_country(self, country: str) -> None:
-        """Centre and highlight the current GMT row for a selected country."""
+        """Centre and highlight the current offset row for a selected country."""
         country_name = country.strip()
         if not country_name:
             return
@@ -826,10 +852,16 @@ class TimeZoneWindow(QMainWindow):
         if result is None:
             return
         offset, _abbreviation = result
-        if self._highlighted_row is not None:
-            self._highlighted_row.set_search_highlight(False)
+        self._highlight_offset(offset)
+
+    def _highlight_offset(self, offset: Offset, flash: bool = False) -> None:
         row = self._rows[offset]
-        row.set_search_highlight(True)
+        if self._highlighted_row is not None and self._highlighted_row is not row:
+            self._highlighted_row.set_search_highlight(False)
+        if flash:
+            row.flash_search_highlight()
+        else:
+            row.set_search_highlight(True)
         self._highlighted_row = row
         self.list_widget.scrollToItem(
             self._items[offset],
