@@ -226,6 +226,12 @@ QLabel#pastTimeLabel {
     font-size: 11pt;
     font-weight: 600;
 }
+QLabel#timePeriodLabel {
+    background: transparent;
+    color: #66768a;
+    font-size: 8pt;
+    font-weight: 600;
+}
 QWidget#offsetSlot {
     background: #11151c;
 }
@@ -583,13 +589,15 @@ class TimeZoneRow(QWidget):
         self.hemisphere_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.hemisphere_label.setVisible(bool(self.hemisphere_label.text()))
 
-        offset_layout = QVBoxLayout(self.offset_slot)
+        offset_layout = QGridLayout(self.offset_slot)
         offset_layout.setContentsMargins(4, 6, 4, 6)
-        offset_layout.setSpacing(0)
-        offset_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        offset_layout.addWidget(self.offset_label)
-        offset_layout.addWidget(self.local_zone_label)
-        offset_layout.addWidget(self.hemisphere_label)
+        offset_layout.setHorizontalSpacing(0)
+        offset_layout.setVerticalSpacing(0)
+        offset_layout.addWidget(self.offset_label, 0, 0)
+        offset_layout.addWidget(self.local_zone_label, 1, 0)
+        offset_layout.addWidget(self.hemisphere_label, 2, 0)
+        for row, height in enumerate((22, 16, 16)):
+            offset_layout.setRowMinimumHeight(row, height)
 
         self.locations_slot = QWidget(self)
         self.locations_slot.setObjectName("locationsSlot")
@@ -607,16 +615,32 @@ class TimeZoneRow(QWidget):
         for column, cell in enumerate(self.location_cells):
             locations_layout.addWidget(cell, 0, column)
 
-        self.time_label = QLabel(self)
+        self.time_slot = QWidget(self)
+        self.time_slot.setObjectName("timeSlot")
+        self.time_slot.setFixedWidth(215)
+
+        self.time_label = QLabel(self.time_slot)
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.time_label.setFixedWidth(215)
+
+        self.period_label = QLabel(self.time_slot)
+        self.period_label.setObjectName("timePeriodLabel")
+        self.period_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        time_layout = QGridLayout(self.time_slot)
+        time_layout.setContentsMargins(4, 6, 4, 6)
+        time_layout.setHorizontalSpacing(0)
+        time_layout.setVerticalSpacing(0)
+        time_layout.addWidget(self.time_label, 0, 0)
+        time_layout.addWidget(self.period_label, 1, 0)
+        for row, height in enumerate((22, 16, 16)):
+            time_layout.setRowMinimumHeight(row, height)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 8, 16, 8)
         layout.setSpacing(14)
         layout.addWidget(self.offset_slot)
         layout.addWidget(self.locations_slot, 1)
-        layout.addWidget(self.time_label)
+        layout.addWidget(self.time_slot)
         self.set_reference_offset(0)
 
     @staticmethod
@@ -695,6 +719,9 @@ class TimeZoneRow(QWidget):
 
         self.time_label.setText(
             snapshot.local_datetime.strftime("%a, %d %b %Y  ·  %H:%M:%S")
+        )
+        self.period_label.setText(
+            "AM" if snapshot.local_datetime.hour < 12 else "PM"
         )
         local_zones = self.local_zone_text(snapshot.abbreviations, snapshot.offset)
         self.local_zone_label.setText(local_zones)

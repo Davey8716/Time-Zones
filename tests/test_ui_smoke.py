@@ -132,7 +132,22 @@ class UiSmokeTests(unittest.TestCase):
                 self.assertEqual(label.alignment(), Qt.AlignmentFlag.AlignCenter)
             self.assertEqual(row.hemisphere_label.objectName(), "hemisphereLabel")
             self.assertEqual(window.minimumSize().height(), 500)
+            self.assertEqual(window.width(), 1000)
             self.assertEqual(window.height(), 800)
+            self.assertEqual(row.time_slot.width(), 215)
+            time_center = row.time_label.mapTo(
+                row, row.time_label.rect().center()
+            ).y()
+            offset_center = row.offset_label.mapTo(
+                row, row.offset_label.rect().center()
+            ).y()
+            self.assertLessEqual(abs(time_center - offset_center), 1)
+            self.assertGreater(
+                row.period_label.mapTo(row, row.period_label.rect().topLeft()).y(),
+                row.time_label.mapTo(row, row.time_label.rect().bottomLeft()).y(),
+            )
+            self.assertEqual(row.period_label.objectName(), "timePeriodLabel")
+            self.assertEqual(row.period_label.alignment(), Qt.AlignmentFlag.AlignCenter)
             for offset, item in window._items.items():
                 self.assertEqual(item.sizeHint().height(), 90)
                 hemisphere = window._rows[offset].hemisphere_label
@@ -783,6 +798,29 @@ class UiSmokeTests(unittest.TestCase):
         self.assertEqual(TimeZoneRow.local_zone_text(("GMT", "+00"), 0), "")
         self.assertEqual(TimeZoneRow.local_zone_text(("PKT", "+05"), 5), "PKT")
         self.assertEqual(TimeZoneRow.local_zone_text(("SST", "-11"), -11), "SST")
+
+    def test_time_period_uses_local_hour_and_keeps_24_hour_time(self):
+        row = TimeZoneRow(0)
+        try:
+            expectations = (
+                (datetime(2026, 8, 2, 0, 6, 55, tzinfo=timezone.utc), "00:06:55", "AM"),
+                (datetime(2026, 8, 2, 11, 59, 59, tzinfo=timezone.utc), "11:59:59", "AM"),
+                (datetime(2026, 8, 2, 12, 0, 0, tzinfo=timezone.utc), "12:00:00", "PM"),
+                (datetime(2026, 8, 2, 18, 6, 55, tzinfo=timezone.utc), "18:06:55", "PM"),
+            )
+            for local_datetime, displayed_time, period in expectations:
+                row.update_snapshot(
+                    TimeZoneSnapshot(
+                        offset=0,
+                        local_datetime=local_datetime,
+                        locations=(),
+                        abbreviations=("GMT",),
+                    )
+                )
+                self.assertIn(displayed_time, row.time_label.text())
+                self.assertEqual(row.period_label.text(), period)
+        finally:
+            row.close()
 
     def test_inactive_chatham_dst_row_explains_switchover(self):
         row = TimeZoneRow(13.75)
