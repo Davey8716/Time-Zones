@@ -7,10 +7,11 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QFrame,
     QLabel,
     QListWidget,
     QPushButton,
@@ -102,8 +103,22 @@ class UiSmokeTests(unittest.TestCase):
             self.assertFalse(headers[2].pixmap().isNull())
             title = window.findChild(QLabel, "appTitle")
             subtitle = window.findChild(QLabel, "appSubtitle")
+            title_bar = window.findChild(QFrame, "titleBar")
             self.assertEqual(title.alignment(), Qt.AlignmentFlag.AlignCenter)
             self.assertEqual(subtitle.alignment(), Qt.AlignmentFlag.AlignCenter)
+            self.assertEqual(title_bar.height(), 80)
+            title_bar_center = title_bar.rect().center().x()
+            self.assertLessEqual(
+                abs(title.mapTo(title_bar, title.rect().center()).x() - title_bar_center),
+                1,
+            )
+            self.assertLessEqual(
+                abs(
+                    subtitle.mapTo(title_bar, subtitle.rect().center()).x()
+                    - title_bar_center
+                ),
+                1,
+            )
             reset_button = window.findChild(QPushButton, "resetButton")
             self.assertEqual(reset_button.toolTip(), "Reset reference to GMT")
             self.assertIs(reset_button.parentWidget(), headers[0].parentWidget())
@@ -193,7 +208,10 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(search_label.text(), "World countries list")
             window.show()
             self.app.processEvents()
-            self.assertLess(search_label.geometry().right(), search.geometry().left())
+            self.assertIs(search_label.parentWidget(), search.parentWidget())
+            self.assertLess(search_label.geometry().bottom(), search.geometry().top())
+            self.assertGreaterEqual(search_label.geometry().left(), 12)
+            self.assertGreaterEqual(search.geometry().left(), 12)
             window.search_country("Japan")
             row = window._rows[9]
             self.assertIs(window._highlighted_row, row)

@@ -23,6 +23,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
+    QGridLayout,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
@@ -358,7 +359,7 @@ class TitleBar(QFrame):
         super().__init__(window)
         self._window = window
         self.setObjectName("titleBar")
-        self.setFixedHeight(58)
+        self.setFixedHeight(80)
 
         title = QLabel("WORLD TIME ZONES")
         title.setObjectName("appTitle")
@@ -367,7 +368,7 @@ class TitleBar(QFrame):
         subtitle.setObjectName("appSubtitle")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_stack = QVBoxLayout()
-        title_stack.setContentsMargins(0, 8, 0, 7)
+        title_stack.setContentsMargins(0, 10, 0, 10)
         title_stack.setSpacing(1)
         title_stack.addWidget(title)
         title_stack.addWidget(subtitle)
@@ -390,7 +391,10 @@ class TitleBar(QFrame):
 
         country_search_label = QLabel("World countries list")
         country_search_label.setObjectName("countrySearchLabel")
-        country_search_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        country_search_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom
+        )
+        country_search_label.setFixedHeight(18)
 
         country_search = QComboBox()
         country_search.setObjectName("countrySearch")
@@ -418,18 +422,37 @@ class TitleBar(QFrame):
             lambda: window.search_country(country_search.currentText())
         )
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(5, 0, 5, 0)
-        layout.setSpacing(0)
-        layout.addWidget(country_search_label)
-        layout.addSpacing(8)
-        layout.addWidget(country_search)
-        layout.addSpacing(10)
-        layout.addStretch()
-        layout.addLayout(title_stack)
-        layout.addStretch()
-        layout.addWidget(minimize)
-        layout.addWidget(close)
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(12, 8, 12, 8)
+        left_layout.setSpacing(2)
+        left_layout.addWidget(country_search_label)
+        left_layout.addWidget(country_search, 0, Qt.AlignmentFlag.AlignLeft)
+        left_layout.addStretch()
+
+        title_panel = QWidget()
+        title_panel.setLayout(title_stack)
+
+        right_panel = QWidget()
+        right_layout = QHBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 12, 0)
+        right_layout.setSpacing(0)
+        right_layout.addStretch()
+        right_layout.addWidget(minimize)
+        right_layout.addWidget(close)
+
+        side_width = country_search.width() + 24
+        layout = QGridLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(0)
+        layout.addWidget(left_panel, 0, 0)
+        layout.addWidget(title_panel, 0, 1)
+        layout.addWidget(right_panel, 0, 2)
+        layout.setColumnMinimumWidth(0, side_width)
+        layout.setColumnMinimumWidth(2, side_width)
+        layout.setColumnStretch(0, 1)
+        layout.setColumnStretch(1, 0)
+        layout.setColumnStretch(2, 1)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
