@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import os
 from pathlib import Path
 import re
@@ -49,6 +49,7 @@ from timezone_config import (
 )
 from timezone_data import (
     COUNTRIES,
+    COUNTRY_ZONE_OPTIONS,
     OFFSET_ORDER,
     Location,
     Offset,
@@ -542,6 +543,7 @@ class TimeZoneRow(QWidget):
     def __init__(self, offset: Offset, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.offset = offset
+        self.locations: tuple[Location, ...] = ()
         self.setObjectName("timezoneRow")
         self.setProperty("searchHighlight", False)
         self._search_glow = QGraphicsDropShadowEffect(self)
@@ -633,6 +635,7 @@ class TimeZoneRow(QWidget):
         label.update()
 
     def update_snapshot(self, snapshot: TimeZoneSnapshot) -> None:
+        self.locations = snapshot.locations
         if snapshot.locations:
             for cell, location in zip(self.location_cells, snapshot.locations):
                 cell.set_location(location)
@@ -856,7 +859,12 @@ class TimeZoneWindow(QMainWindow):
         )
         return menu
 
-    def set_reference_offset(self, offset: Offset) -> None:
+    def set_reference_offset(
+        self,
+        offset: Offset,
+        country: str | None = None,
+        at_utc: datetime | None = None,
+    ) -> None:
         if not is_valid_reference_offset(offset):
             raise ValueError(f"Invalid reference offset: {offset}")
         self.reference_offset = offset
@@ -864,6 +872,42 @@ class TimeZoneWindow(QMainWindow):
             row.set_reference_offset(offset)
         self._config.save_reference_offset(offset)
         self._highlight_offset(offset)
+        selected_country = country or self._country_for_offset(
+            offset, at_utc or datetime.now(timezone.utc)
+        )
+        country_index = self.title_bar.country_search.findText(
+            selected_country, Qt.MatchFlag.MatchFixedString
+        )
+        if country_index >= 0:
+            self.title_bar.country_search.setCurrentIndex(country_index)
+
+    def _country_for_offset(self, offset: Offset, at_utc: datetime) -> str:
+        """Prefer a displayed country, then any alphabetical country-zone match."""
+        row = self._rows[offset]
+        country_by_zone = {
+            zone_id: country for country, zone_id in COUNTRY_ZONE_OPTIONS
+        }
+        canonical_names = {country.casefold(): country for country in COUNTRIES}
+        for location in row.locations:
+            country = country_by_zone.get(location.zone_id)
+            if country is None:
+                base_name = re.sub(r"\s*\([^)]*\)\s*$", "", location.country)
+                country = canonical_names.get(base_name.casefold())
+            if country is not None:
+                return country
+        for country, zone_id in COUNTRY_ZONE_OPTIONS:
+            result = offset_for(Location(country, "", zone_id), at_utc)
+            if result is not None and result[0] == offset:
+                return country
+        for seasonal_date in (
+            at_utc - timedelta(days=182),
+            at_utc + timedelta(days=182),
+        ):
+            for country, zone_id in COUNTRY_ZONE_OPTIONS:
+                result = offset_for(Location(country, "", zone_id), seasonal_date)
+                if result is not None and result[0] == offset:
+                    return country
+        return self.title_bar.country_search.currentText()
 
     def set_location_order(self, location_order: str) -> None:
         if not is_valid_location_order(location_order):
@@ -881,11 +925,7 @@ class TimeZoneWindow(QMainWindow):
     def reset_reference(self) -> None:
         current = datetime.now(timezone.utc)
         country = self._gmt_country(current)
-        self.set_reference_offset(0)
-        country_index = self.title_bar.country_search.findText(
-            country, Qt.MatchFlag.MatchFixedString
-        )
-        self.title_bar.country_search.setCurrentIndex(country_index)
+        self.set_reference_offset(0, country=country, at_utc=current)
         self._highlight_offset(0, flash=True)
 
     @staticmethod
@@ -906,7 +946,7 @@ class TimeZoneWindow(QMainWindow):
         if result is None:
             return
         offset, _abbreviation = result
-        self.set_reference_offset(offset)
+        self.set_reference_offset(offset, country=country_name, at_utc=current)
 
     def _highlight_offset(self, offset: Offset, flash: bool = False) -> None:
         row = self._rows[offset]

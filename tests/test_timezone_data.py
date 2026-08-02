@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from timezone_data import (
     COUNTRIES,
+    COUNTRY_ZONE_OPTIONS,
     OFFSET_ORDER,
     Location,
     format_gmt_offset,
@@ -50,6 +51,8 @@ class TimeZoneDataTests(unittest.TestCase):
         self.assertEqual(COUNTRIES[:3], ["Afghanistan", "Åland Islands", "Albania"])
         self.assertEqual(time_zone_for_country("India"), "Asia/Kolkata")
         self.assertEqual(time_zone_for_country("united states"), "America/New_York")
+        self.assertIn(("Australia", "Australia/Eucla"), COUNTRY_ZONE_OPTIONS)
+        self.assertIn(("New Zealand", "Pacific/Chatham"), COUNTRY_ZONE_OPTIONS)
 
     def test_missing_database_is_detected(self):
         with patch(

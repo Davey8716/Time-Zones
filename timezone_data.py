@@ -209,10 +209,23 @@ _COUNTRY_ZONE_OVERRIDES = {
     "BV": "Europe/Oslo",
     "HM": "Indian/Kerguelen",
 }
+_COUNTRY_ZONE_EXTRAS = {
+    "UM": ("Etc/GMT+12",),
+}
 
 
-def _load_country_time_zones() -> list[tuple[str, str]]:
-    """Load the complete ISO country list with one representative IANA zone."""
+def _country_sort_key(country: str) -> str:
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKD", country.casefold())
+        if not unicodedata.combining(character)
+    )
+
+
+def _load_country_time_zones() -> tuple[
+    list[tuple[str, str]], list[tuple[str, str]]
+]:
+    """Load representative and complete ISO country/IANA-zone associations."""
     database = files("tzdata.zoneinfo")
     country_names = {
         code: name
@@ -225,26 +238,34 @@ def _load_country_time_zones() -> list[tuple[str, str]]:
         )
     }
     country_zones: dict[str, str] = {}
+    all_country_zones: set[tuple[str, str]] = set()
     for line in (database / "zone.tab").read_text(encoding="utf-8").splitlines():
         if not line or line.startswith("#"):
             continue
         code, _coordinates, zone_id, *_comment = line.split("\t")
         country_zones.setdefault(code, zone_id)
+        all_country_zones.add((country_names[code], zone_id))
     country_zones.update(_COUNTRY_ZONE_OVERRIDES)
-    return sorted(
+    for country_code, zone_id in _COUNTRY_ZONE_OVERRIDES.items():
+        all_country_zones.add((country_names[country_code], zone_id))
+    for country_code, zone_ids in _COUNTRY_ZONE_EXTRAS.items():
+        for zone_id in zone_ids:
+            all_country_zones.add((country_names[country_code], zone_id))
+    representative_zones = sorted(
         (
             (country_name, country_zones[country_code])
             for country_code, country_name in country_names.items()
         ),
-        key=lambda item: "".join(
-            character
-            for character in unicodedata.normalize("NFKD", item[0].casefold())
-            if not unicodedata.combining(character)
-        ),
+        key=lambda item: _country_sort_key(item[0]),
     )
+    complete_zones = sorted(
+        all_country_zones,
+        key=lambda item: (_country_sort_key(item[0]), item[1]),
+    )
+    return representative_zones, complete_zones
 
 
-COUNTRY_TIME_ZONES: list[tuple[str, str]] = _load_country_time_zones()
+COUNTRY_TIME_ZONES, COUNTRY_ZONE_OPTIONS = _load_country_time_zones()
 COUNTRIES: list[str] = [country for country, _zone_id in COUNTRY_TIME_ZONES]
 _COUNTRY_ZONE_BY_NAME = {
     country.casefold(): zone_id for country, zone_id in COUNTRY_TIME_ZONES

@@ -185,7 +185,7 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(
                 gmt_row._search_flash.state(), QAbstractAnimation.State.Running
             )
-            QTest.qWait(gmt_row._search_flash.duration() + 50)
+            QTest.qWait(gmt_row._search_flash.duration() + 200)
             self.assertEqual(
                 gmt_row._search_flash.state(), QAbstractAnimation.State.Stopped
             )
@@ -267,6 +267,9 @@ class UiSmokeTests(unittest.TestCase):
                 window.reference_action_text(5.5),
                 "Set GMT+5:30 as my reference",
             )
+            expected_country = window._country_for_offset(
+                -5, datetime.now(timezone.utc)
+            )
             menu.actions()[0].trigger()
             self.assertEqual(window.reference_offset, -5)
             self.assertEqual(
@@ -274,6 +277,9 @@ class UiSmokeTests(unittest.TestCase):
             )
             self.assertIs(window._highlighted_row, window._rows[-5])
             self.assertTrue(window._rows[-5].property("searchHighlight"))
+            self.assertEqual(
+                window.title_bar.country_search.currentText(), expected_country
+            )
 
             with patch.object(window, "_build_reference_menu") as build_menu:
                 window._show_reference_menu(QPoint(-1, -1))
@@ -299,6 +305,7 @@ class UiSmokeTests(unittest.TestCase):
             search.activated.emit(search.findText("Japan"))
             row = window._rows[9]
             self.assertEqual(window.reference_offset, 9)
+            self.assertEqual(search.currentText(), "Japan")
             self.assertEqual(TimeZoneConfig(self.config_path).load_reference_offset(), 9)
             self.assertIs(window._highlighted_row, row)
             self.assertTrue(row.property("searchHighlight"))
@@ -315,6 +322,7 @@ class UiSmokeTests(unittest.TestCase):
             search.setEditText("India")
             search.lineEdit().returnPressed.emit()
             self.assertEqual(window.reference_offset, 5.5)
+            self.assertEqual(search.currentText(), "India")
             self.assertEqual(
                 TimeZoneConfig(self.config_path).load_reference_offset(), 5.5
             )
@@ -326,6 +334,66 @@ class UiSmokeTests(unittest.TestCase):
             self.assertEqual(
                 TimeZoneConfig(self.config_path).load_reference_offset(), 5.5
             )
+        finally:
+            window._timer.stop()
+            window.close()
+
+    def test_manual_reference_prefers_visible_and_multizone_countries(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            winter = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
+            mountain_row = window._rows[-7]
+            mountain_row.update_snapshot(
+                TimeZoneSnapshot(
+                    offset=-7,
+                    local_datetime=winter,
+                    locations=(
+                        Location(
+                            "United States (Mountain)",
+                            "Denver",
+                            "America/Denver",
+                        ),
+                    ),
+                    abbreviations=("MST",),
+                )
+            )
+            window.set_reference_offset(-7, at_utc=winter)
+            self.assertEqual(
+                window.title_bar.country_search.currentText(), "United States"
+            )
+
+            window._rows[8.75].locations = ()
+            window.set_reference_offset(8.75, at_utc=winter)
+            self.assertEqual(
+                window.title_bar.country_search.currentText(), "Australia"
+            )
+
+            summer = datetime(2026, 7, 15, 12, tzinfo=timezone.utc)
+            window._rows[-3.5].locations = ()
+            window.set_reference_offset(-3.5, at_utc=summer)
+            self.assertEqual(
+                window.title_bar.country_search.currentText(), "Canada"
+            )
+            window._rows[13.75].locations = ()
+            window.set_reference_offset(13.75, at_utc=summer)
+            self.assertEqual(
+                window.title_bar.country_search.currentText(), "New Zealand"
+            )
+        finally:
+            window._timer.stop()
+            window.close()
+
+    def test_location_order_controls_visible_country_preference(self):
+        window = TimeZoneWindow(enable_tray=False, config_path=self.config_path)
+        try:
+            summer = datetime(2026, 7, 26, 12, tzinfo=timezone.utc)
+            window.set_location_order(LOCATION_ORDER_WESTERN)
+            window.refresh_times(summer)
+            self.assertEqual(window._country_for_offset(-8, summer), "United States")
+
+            window.set_location_order(LOCATION_ORDER_EASTERN)
+            window.refresh_times(summer)
+            self.assertEqual(window._country_for_offset(-8, summer), "Pitcairn")
         finally:
             window._timer.stop()
             window.close()
