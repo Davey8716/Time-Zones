@@ -65,5 +65,4 @@ python -m unittest discover -s tests -v
 ## License
 
 The project's original source code is available under the [MIT License](LICENSE).
-Bundled third-party artwork is excluded; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-before redistributing it.
+
