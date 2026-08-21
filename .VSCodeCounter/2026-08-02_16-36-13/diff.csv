@@ -1,9 +1,0 @@
-"filename", "language", "Markdown", "Python", "comment", "blank", "total"
-"c:\Users\davey\Desktop\Projects\Time Zones\README.md", "Markdown", 7, 0, 0, 3, 10
-"c:\Users\davey\Desktop\Projects\Time Zones\app_window.py", "Python", 0, 478, 12, 52, 542
-"c:\Users\davey\Desktop\Projects\Time Zones\tests\test_timezone_config.py", "Python", 0, 50, 0, 11, 61
-"c:\Users\davey\Desktop\Projects\Time Zones\tests\test_timezone_data.py", "Python", 0, 35, 0, 3, 38
-"c:\Users\davey\Desktop\Projects\Time Zones\tests\test_ui_smoke.py", "Python", 0, 434, 0, 23, 457
-"c:\Users\davey\Desktop\Projects\Time Zones\timezone_config.py", "Python", 0, 73, 1, 21, 95
-"c:\Users\davey\Desktop\Projects\Time Zones\timezone_data.py", "Python", 0, 172, 2, 12, 186
-"Total", "-", 7, 1242, 15, 125, 1389
